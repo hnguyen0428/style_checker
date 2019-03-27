@@ -51,6 +51,9 @@ FUNC_CALL_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *\(.*\) *;"
 DECLARATIONS_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *\** *[a-zA-Z_][a-zA-Z0-9_]* *;"
 KEYWORDS_REGEXP = "( *(if|else if|while|for|switch) *\(.*\))|((continue|break);)"
 
+# Misc
+TODO_COMMENT_REGEXP = " *// *TODO"
+
 # The group index that is the number inside the magic number pattern
 NUM_GROUP_IND = 1
 SWITCH_CASE_REGEXP = " *((case .+ *:)|(default *:))"
@@ -73,6 +76,8 @@ dec_asg_ptrn = re.compile(DEC_ASSIGNMENT_REGEXP)
 func_call_ptrn = re.compile(FUNC_CALL_REGEXP)
 dec_ptrn = re.compile(DECLARATIONS_REGEXP)
 keywords_ptrn = re.compile(KEYWORDS_REGEXP)
+
+todo_cmmt_ptrn = re.compile(TODO_COMMENT_REGEXP)
 
 code_regexp = [c_dirs_ptrn, func_ptrn, func_hdr_ptrn, asg_ptrn,
 dec_asg_ptrn, func_call_ptrn, dec_ptrn, keywords_ptrn]
@@ -178,7 +183,7 @@ class CStyleChecker(object):
 			match = ptrn.match(s)
 			if match:
 				return match
-		return None
+		return None		
 
 	def contains_magic(self, line):
 		# Hack: Add a space at the beginning so the regexp works
@@ -709,6 +714,10 @@ class CStyleChecker(object):
 		strip = strip.lstrip(FORWARD_SLASH)
 		if self.is_code(strip):
 			print('Line %d: Commented out code' % (lines[0]+1))
+			print(self.lines[lines[0]])
+
+		if todo_cmmt_ptrn.match(self.lines[lines[0]]):
+			print('Line %d: Left in TODO comment' % (lines[0]+1))
 			print(self.lines[lines[0]])
 
 		return lines[0] + 1
