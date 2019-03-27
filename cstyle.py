@@ -16,6 +16,7 @@ RIGHT_PAREN = ')'
 SEMICOLON = ';'
 COLON = ':'
 BACKSLASH = '\\'
+FORWARD_SLASH = '/'
 DOUBLE_QUOTE = '\"'
 SINGLE_QUOTE = '\''
 TAB_CHAR = '\t'
@@ -27,17 +28,29 @@ SPACE_REPLACEMENT_CHAR = '^'
 
 VARS_ALLOWED_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
 
+# Characters that can be used in a type or a function name
+STD_CHARS_REGEXP = "[a-zA-Z_][a-zA-Z0-9_]*"
+NUMBER_REGEXP = "(-|)(0x|0|)[0-9]+"
+
 
 BLCK_COMMENT_REGEXP = " *(\/\*)"
 COMMENT_REGEXP = " *\/\/.*"
-C_DIRS_REGEXP = " *\#(define|include|undef|ifdef|ifndef|if|else|elif|endif|error|pragma)"
-FUNC_REGEXP = " *([a-zA-Z_][a-zA-Z0-9_]*) ([a-zA-Z_][a-zA-Z0-9_]*)( )*(\(.*\))"
-FUNC_HDR_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* [a-zA-Z_][a-zA-Z0-9_]*( )*\(.*\) *; *\Z"
 STMT_REGEXP = ".*;"
 WHITE_SPACE_REGEXP = "( |\t)+\Z"
 MAGIC_NUMBER_REGEXP = "[^a-zA-Z0-9_]+(-|)((0x|0|)[0-9]+)"
 STRING_REGEXP = "(\".*\")"
 CHAR_REGEXP = "(\'.*\')"
+
+# Code detections regular expressions
+C_DIRS_REGEXP = " *\#(define|include|undef|ifdef|ifndef|if|else|elif|endif|error|pragma)"
+FUNC_REGEXP = " *([a-zA-Z_][a-zA-Z0-9_]*) *\** *([a-zA-Z_][a-zA-Z0-9_]*)( )*(\(.*\))"
+FUNC_HDR_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *\** *[a-zA-Z_][a-zA-Z0-9_]*( )*\(.*\) *; *\Z"
+ASSIGNMENT_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *=.* *;"
+DEC_ASSIGNMENT_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *\** *[a-zA-Z_][a-zA-Z0-9_]* *=.* *;"
+FUNC_CALL_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *\(.*\) *;"
+DECLARATIONS_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *\** *[a-zA-Z_][a-zA-Z0-9_]* *;"
+KEYWORDS_REGEXP = "( *(if|else if|while|for|switch) *\(.*\))|((continue|break);)"
+
 # The group index that is the number inside the magic number pattern
 NUM_GROUP_IND = 1
 SWITCH_CASE_REGEXP = " *((case .+ *:)|(default *:))"
@@ -45,15 +58,24 @@ SWITCH_CASE_REGEXP = " *((case .+ *:)|(default *:))"
 
 blck_cmmt_ptrn = re.compile(BLCK_COMMENT_REGEXP)
 cmmt_ptrn = re.compile(COMMENT_REGEXP)
-c_dirs_ptrn = re.compile(C_DIRS_REGEXP)
-func_ptrn = re.compile(FUNC_REGEXP)
-func_hdr_ptrn = re.compile(FUNC_HDR_REGEXP)
 stmt_ptrn = re.compile(STMT_REGEXP)
 white_space_ptrn = re.compile(WHITE_SPACE_REGEXP)
 magic_num_ptrn = re.compile(MAGIC_NUMBER_REGEXP)
 string_ptrn = re.compile(STRING_REGEXP)
 char_ptrn = re.compile(CHAR_REGEXP)
 switch_case_regexp = re.compile(SWITCH_CASE_REGEXP)
+
+c_dirs_ptrn = re.compile(C_DIRS_REGEXP)
+func_ptrn = re.compile(FUNC_REGEXP)
+func_hdr_ptrn = re.compile(FUNC_HDR_REGEXP)
+asg_ptrn = re.compile(ASSIGNMENT_REGEXP)
+dec_asg_ptrn = re.compile(DEC_ASSIGNMENT_REGEXP)
+func_call_ptrn = re.compile(FUNC_CALL_REGEXP)
+dec_ptrn = re.compile(DECLARATIONS_REGEXP)
+keywords_ptrn = re.compile(KEYWORDS_REGEXP)
+
+code_regexp = [c_dirs_ptrn, func_ptrn, func_hdr_ptrn, asg_ptrn,
+dec_asg_ptrn, func_call_ptrn, dec_ptrn, keywords_ptrn]
 
 # Types
 _BLOCK_CMMT = 0
@@ -151,6 +173,13 @@ class CStyleChecker(object):
 		if self.case_indent != 0:
 			self.case_indent = self.indent_amt
 
+	def is_code(self, s):
+		for ptrn in code_regexp:
+			match = ptrn.match(s)
+			if match:
+				return match
+		return None
+
 	def contains_magic(self, line):
 		# Hack: Add a space at the beginning so the regexp works
 		line = ' ' + line
@@ -158,7 +187,11 @@ class CStyleChecker(object):
 		for match in matches:
 			number = match[NUM_GROUP_IND]
 			if number not in NON_MAGIC_NUMBERS:
-				return True
+				index = line.find(number)
+				lo, hi = index, index + len(number)
+				in_comment = self.within_comment(line, lo, hi)
+				if not in_comment:
+					return True
 
 		in_quote = False
 		index = line.find(DOUBLE_QUOTE)
@@ -171,7 +204,11 @@ class CStyleChecker(object):
 						in_quote = False
 						# Check if the string found is non magic string
 						if line[prev_quote:i+1] not in NON_MAGIC_NUMBERS:
-							return True
+							index = line.find(line[prev_quote:i+1])
+							lo, hi = index, index + len(line[prev_quote:i+1])
+							in_comment = self.within_comment(line, lo, hi)
+							if not in_comment:
+								return True
 					else:
 						in_quote = True
 						prev_quote = i
@@ -186,7 +223,11 @@ class CStyleChecker(object):
 						in_quote = False
 						# Check if the char found is non magic char
 						if line[prev_quote:i+1] not in NON_MAGIC_NUMBERS:
-							return True
+							index = line.find(line[prev_quote:i+1])
+							lo, hi = index, index + len(line[prev_quote:i+1])
+							in_comment = self.within_comment(line, lo, hi)
+							if not in_comment:
+								return True
 					else:
 						in_quote = True
 						prev_quote = i
@@ -663,6 +704,13 @@ class CStyleChecker(object):
 			self.check_indentation(lines, indent_amt, relax=True)
 		else:
 			self.check_indentation(lines, indent_amt)
+
+		strip = self.lines[lines[0]].lstrip()
+		strip = strip.lstrip(FORWARD_SLASH)
+		if self.is_code(strip):
+			print('Line %d: Commented out code' % (lines[0]+1))
+			print(self.lines[lines[0]])
+
 		return lines[0] + 1
 
 	def handle_directive(self, lines, indent_amt):

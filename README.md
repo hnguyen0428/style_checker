@@ -8,6 +8,7 @@ What it can check:
     - Lines over 80 characters
     - General indentation
     - "Magic" Numbers
+    - Commented out code (most of them)
     
 Note: This should only be used as a general guide for styling. The program
 will not always be able to catch every styling mistake nor will the
