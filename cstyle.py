@@ -612,6 +612,11 @@ class CStyleChecker(object):
 			# Replace tabs with spaces
 			line = self.lines[line_n]
 			stripped_line = line.lstrip()
+
+			# Ignore if the line is empty
+			if len(stripped_line) == 0:
+				continue
+
 			actual_indent_amt = len(line) - len(stripped_line)
 			if line_n == lines[0]:
 				# For the first line, the / should be == indent_amt
