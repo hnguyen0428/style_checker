@@ -25,7 +25,7 @@ BLCK_COMMENT_REGEXP = " *(\/\*)"
 COMMENT_REGEXP = " *\/\/.*"
 C_DIRS_REGEXP = " *\#(define|include|undef|ifdef|ifndef|if|else|elif|endif|error|pragma)"
 FUNC_REGEXP = " *([a-zA-Z_][a-zA-Z0-9_]*) ([a-zA-Z_][a-zA-Z0-9_]*)( )*(\(.*\))"
-FUNC_HDR_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* [a-zA-Z_][a-zA-Z0-9_]*\(.*\)\;\Z"
+FUNC_HDR_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* [a-zA-Z_][a-zA-Z0-9_]*( )*\(.*\) *; *\Z"
 STMT_REGEXP = ".*;"
 WHITE_SPACE_REGEXP = "( |\t)+\Z"
 MAGIC_NUMBER_REGEXP = "[^a-zA-Z0-9_]+(-|)((0x|0|)[0-9]+)"
@@ -112,7 +112,7 @@ class CStyleChecker(object):
 				while j < len(self.lines) and len(self.lines[j].lstrip()) == 0:
 					j += 1
 
-				next_line = self.lines[j+1]
+				next_line = self.lines[j]
 				self.indent_amt = len(next_line) - len(next_line.lstrip())
 				break
 
@@ -125,7 +125,7 @@ class CStyleChecker(object):
 			if keyword == "switch":
 				# Find a case
 				term_line, term_ind = self.find_statement_terminator(i, switch_ind, 
-					include_colon=True)
+					term=COLON)
 				j = term_line + 1
 				while j < len(self.lines):
 					keyword, case_ind = self.match_keywords(self.lines[j])
@@ -265,14 +265,16 @@ class CStyleChecker(object):
 
 	# Look for either the ; or {.
 	# If include_keywords, will also look for the keywords on the following lines
-	def find_statement_terminator(self, n, start, include_colon=False, include_keywords=False):
+	def find_statement_terminator(self, n, start, term=None, include_keywords=False):
 		for line_n in range(n, len(self.lines)):
 			lo = start if line_n == n else 0
 			for j in range(lo, len(self.lines[line_n])):
-				terms = (LEFT_CURLY, SEMICOLON, COLON) if include_colon\
-					else (LEFT_CURLY, SEMICOLON)
-				if self.lines[line_n][j] in terms:
-					return line_n, j
+				if term is None:
+					if self.lines[line_n][j] in (LEFT_CURLY, SEMICOLON):
+						return line_n, j
+				else:
+					if self.lines[line_n][j] == term:
+						return line_n, j
 
 			if line_n != n and include_keywords:
 				keyword, ind = self.match_keywords(self.lines[line_n])
@@ -373,17 +375,19 @@ class CStyleChecker(object):
 			elif keyword in UNCONDITIONALS:
 				# Find left curly brace or semicolon
 				l, j = self.find_statement_terminator(n, 0)
-				# Get start and end of code block
-				code_start, code_end = self.find_code_block(l, j)
 
 				# If do while loop, look for the semicolon after while
 				if keyword == "do":
+					# Get start and end of code block
+					code_start, code_end = self.find_code_block(l, j)
 					l, j = self.find_statement_terminator(code_end[0], code_end[1])
 					end = (l, j)
 					group.extend([_ for _ in range(n, end[0]+1)])
 					return group, _UNCONDITIONAL
 				else:
 					if self.lines[l][j] == LEFT_CURLY:
+						# Get start and end of code block
+						code_start, code_end = self.find_code_block(l, j)
 						# Add all lines up to the matching right curly brace (inclusive)
 						group.extend([_ for _ in range(n, code_end[0]+1)])
 						return group, _UNCONDITIONAL
@@ -438,7 +442,12 @@ class CStyleChecker(object):
 		# Either regular statements or function definition
 		l, j = self.find_statement_terminator(n, 0)
 		code = "".join([self.lines[_] for _ in range(n, l+1)])
-		if func_ptrn.match(code) and not func_hdr_ptrn.match(code):	# Function definition
+		if func_ptrn.match(code) and not func_hdr_ptrn.match(code):
+			# Function definition
+			# It is possible that the function was declared in this way
+			# In which case, terminator is ;. Solve this by force finding {
+			# int foo(c) int c; {}
+			l, j = self.find_statement_terminator(l, j, term=LEFT_CURLY)
 			start, end = self.find_code_block(l, j)
 			group.extend([_ for _ in range(n, end[0]+1)])
 			return group, _FUNC
@@ -522,7 +531,7 @@ class CStyleChecker(object):
 		elif t == _STATEMENT:
 			return self.handle_statement(group, indent_amt, check_magic)
 		elif t == _STRUCTURE:
-			return self.handle_structure(group, indent_amt)
+			return self.handle_structure(group, indent_amt, check_magic)
 		elif t == _EMPTY_LINE:
 			return self.handle_whitespace(group)
 		elif t == _SWITCH_CASE:
@@ -649,7 +658,7 @@ class CStyleChecker(object):
 
 		# Look for colon
 		term_line, term_ind = self.find_statement_terminator(lines[0], 0, 
-			include_colon=True)
+			term=COLON)
 
 		# Check behind colon for anything
 		line = self.lines[term_line]
@@ -673,6 +682,7 @@ class CStyleChecker(object):
 	# the condition statements, not the first line itself
 	def handle_cond(self, lines, indent_amt):
 		first_line = self.lines[lines[0]]
+		# print(first_line)
 		keyword, index = self.match_keywords(first_line)
 		is_switch = keyword == "switch"
 
@@ -762,7 +772,7 @@ class CStyleChecker(object):
 		return lines[-1] + 1
 
 	def handle_func(self, lines, indent_amt):
-		term_line, term_ind = self.find_statement_terminator(lines[0], 0)
+		term_line, term_ind = self.find_statement_terminator(lines[0], 0, term=LEFT_CURLY)
 		self.check_magic([_ for _ in range(lines[0], term_line+1)])
 
 		line = self.lines[term_line]
@@ -792,7 +802,7 @@ class CStyleChecker(object):
 
 		return lines[-1] + 1
 
-	def handle_structure(self, lines, indent_amt):
+	def handle_structure(self, lines, indent_amt, check_magic):
 		self.check_indentation([lines[0]], indent_amt)
 
 		# If there is only 1 line, we're done checking
@@ -807,7 +817,8 @@ class CStyleChecker(object):
 		i = term_line + 1
 		while i < len(self.lines) and i < lines[-1]:
 			group, t = self.parse_line(i)
-			i = self.handle_group(group, t, indent_amt+self.indent_amt)
+			i = self.handle_group(group, t, indent_amt+self.indent_amt, 
+				check_magic=check_magic)
 
 		curly_start, curly_end = self.find_code_block(term_line, term_ind)
 		last_line = self.lines[curly_end[0]]
@@ -860,7 +871,7 @@ class CStyleChecker(object):
 		i = 0
 		while i < len(self.lines):
 			group, t = self.parse_line(i)
-			i = self.handle_group(group, t, 0)
+			i = self.handle_group(group, t, 0, check_magic=False)
 
 	def test_parse(self):
 		names = {
