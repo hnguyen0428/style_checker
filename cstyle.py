@@ -33,7 +33,7 @@ STRING_REGEXP = "(\".*\")"
 CHAR_REGEXP = "(\'.*\')"
 # The group index that is the number inside the magic number pattern
 NUM_GROUP_IND = 1
-SWITCH_CASE_REGEXP = " *((case [a-zA-Z0-9_]+:)|(default:))"
+SWITCH_CASE_REGEXP = " *((case .+ *:)|(default *:))"
 
 
 blck_cmmt_ptrn = re.compile(BLCK_COMMENT_REGEXP)
@@ -510,7 +510,7 @@ class CStyleChecker(object):
 		for line_n in lines:
 			has_magic = self.contains_magic(self.lines[line_n])
 			if has_magic:
-				print('Line %d: Contains magic number' % (line_n+1))
+				print('Line %d: Contains magic number/word' % (line_n+1))
 				print(self.lines[line_n])
 
 	# General case: Handling group of lines with t being the type that
