@@ -1,3 +1,10 @@
+'''
+	Filename: cstyle.py
+	Author: Daniel Nguyen
+	Python Version: 2.7
+'''
+
+
 import re
 import sys
 import getopt
@@ -80,7 +87,8 @@ NON_MAGIC_NUMBERS = [
 ]
 
 class CStyleChecker(object):
-	def __init__(self, filename):
+	def __init__(self, filename, check_whitespace=True):
+		self.check_ws = check_whitespace
 		self.og_lines = []
 		self.lines = []
 		self.indent_amt = TAB_LENGTH
@@ -541,10 +549,11 @@ class CStyleChecker(object):
 
 	def handle_trailing_string(self, trail, n, terminator):
 		if len(trail) != 0:
-			# No keyword. Print error
+			# Trailing white space is more than 1 space char
 			if white_space_ptrn.match(trail):
-				print('Line %d: Extra white space behind %s' % (n+1, terminator))
-				print(self.lines[n])
+				if len(trail) > 1 and self.check_ws:
+					print('Line %d: Extra white space behind %s' % (n+1, terminator))
+					print(self.lines[n])
 			else:
 				# Check if the trailing string is a comment. If it is then it's fine
 				if not cmmt_ptrn.match(trail):
@@ -629,7 +638,10 @@ class CStyleChecker(object):
 					indent_error = True
 
 		if indent_error:
-			print('Line %d to %d: Inconsistent Indentation' % (lines[0]+1, lines[-1]+1))
+			if len(lines) > 1:
+				print('Line %d to %d: Inconsistent Indentation' % (lines[0]+1, lines[-1]+1))
+			else:
+				print('Line %d: Inconsistent Indentation' % (lines[0]+1))
 			self.print_lines(lines)
 
 		last_line = self.lines[lines[-1]]
@@ -834,27 +846,30 @@ class CStyleChecker(object):
 
 
 	def handle_whitespace(self, lines):
-		indent_error = False
-		for line_n in lines:
-			line = self.lines[line_n]
-			if len(line) != 0:
-				indent_error = True
+		# If check whitespace is enabled, then check for excess
+		# whitespace
+		if self.check_ws:
+			indent_error = False
+			for line_n in lines:
+				line = self.lines[line_n]
+				if len(line) > 1:
+					indent_error = True
 
-		if indent_error:
-			if len(lines) == 1:
-				print('Line %d: Extra whitespace on empty line' % (lines[0]+1))
-				print('Note: White space replaced with ^')
-				print(self.lines[lines[0]].replace(
-					SPACE_CHAR, SPACE_REPLACEMENT_CHAR)
-				)
-			else:
-				print('Line %d to %d: Extra whitespace on empty lines' % (lines[0]+1, lines[-1]+1))
-				# Replace white space with caret so user could see the spaces
-				ls = [self.lines[l].replace(SPACE_CHAR, 
-					SPACE_REPLACEMENT_CHAR) for l in lines]
-				print('Note: White space replaced with ^')
-				for l in ls:
-					print(l)
+			if indent_error:
+				if len(lines) == 1:
+					print('Line %d: Extra whitespace on empty line' % (lines[0]+1))
+					print('Note: White space replaced with ^')
+					print(self.lines[lines[0]].replace(
+						SPACE_CHAR, SPACE_REPLACEMENT_CHAR)
+					)
+				else:
+					print('Line %d to %d: Extra whitespace on empty lines' % (lines[0]+1, lines[-1]+1))
+					# Replace white space with caret so user could see the spaces
+					ls = [self.lines[l].replace(SPACE_CHAR, 
+						SPACE_REPLACEMENT_CHAR) for l in lines]
+					print('Note: White space replaced with ^')
+					for l in ls:
+						print(l)
 
 		if len(lines) > NEWLINES_LIMIT:
 			beg, end = lines[0]+1, lines[-1]+1
@@ -932,13 +947,18 @@ class CStyleChecker(object):
 
 def usage():
 	print(
-		"Usage: python %s [-h] -f <C filename> [-i <indent amount>]\n" % sys.argv[0]
+		("Usage: python %s [-h] -f <C filename> [-i <indent amount>] [-w]\n" % sys.argv[0]) +
+		"\t-h/--help: Show help message\n" +
+		"\t-f/--file: Filename to style check (required argument)\n" +
+		"\t-i/--indent: Indentation amount\n" +
+		"\t-w/--whitespace-check: Use excess white space check\n"
 	)
 
 if __name__ == '__main__':
-	opts, args = getopt.getopt(sys.argv[1:], "hf:i:", ["help", "file=", "indent="])
+	opts, args = getopt.getopt(sys.argv[1:], "hf:i:w", ["help", "file=", "indent=", "whitespace-check"])
 	file = None
 	indent = None
+	check_whitespace = False
 	for o, a in opts:
 		if o in ("--help", "-h"):
 			usage()
@@ -947,6 +967,8 @@ if __name__ == '__main__':
 			file = a
 		elif o in ("--indent", "-i"):
 			indent = a
+		elif o in ("--whitespace-check", "-w"):
+			check_whitespace = True
 		else:
 			usage()
 			sys.exit(1)
@@ -955,7 +977,7 @@ if __name__ == '__main__':
 		usage()
 		sys.exit(1)
 
-	stl = CStyleChecker(file)
+	stl = CStyleChecker(file, check_whitespace=check_whitespace)
 	if indent is not None:
 		# Override the checker's indent amount
 		try:
