@@ -1,5 +1,6 @@
 import re
 import sys
+import getopt
 
 LEFT_CURLY = '{'
 RIGHT_CURLY = '}'
@@ -14,6 +15,7 @@ TAB_CHAR = '\t'
 SPACE_CHAR = ' '
 START_BLOCK_COMMENT = '/*'
 END_BLOCK_COMMENT = '*/'
+START_COMMENT = '//'
 SPACE_REPLACEMENT_CHAR = '^'
 
 VARS_ALLOWED_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
@@ -70,10 +72,10 @@ LINE_LIMIT = 80
 TAB_LENGTH = 2
 NEWLINES_LIMIT = 2
 NON_MAGIC_NUMBERS = [
-	'0', '-1', '1', '\"\\n\"', '\'\\0\'', '\"r\"', '\"w\"',
-	'\"a\"', '\"r+\"', '\"w+\"', '\"a+\"', '\"rb\"', '\"wb\"',
-	'\"ab\"', '\"r+b\"', '\"w+b\"', '\"a+b\"', '\"rb+\"',
-	'\"wb+\"', '\"ab+\"'
+	'0', '-1', '1', '\"\\n\"', '\'\\n\'', '\'\\0\'',
+	'\"r\"', '\"w\"', '\"a\"', '\"r+\"', '\"w+\"', '\"a+\"', 
+	'\"rb\"', '\"wb\"', '\"ab\"', '\"r+b\"', '\"w+b\"', '\"a+b\"', 
+	'\"rb+\"', '\"wb+\"', '\"ab+\"'
 	# Note there are more but these are the ones for now
 ]
 
@@ -105,8 +107,12 @@ class CStyleChecker(object):
 			group, t = self.parse_line(i)
 			if t == _FUNC:
 				term_line, term_ind = self.find_statement_terminator(group[0], 0)
-				# Use the next line as the basis for indent amount
-				next_line = self.lines[term_line+1]
+				# Use the first non empty line as the basis for indent amount
+				j = term_line + 1
+				while j < len(self.lines) and len(self.lines[j].lstrip()) == 0:
+					j += 1
+
+				next_line = self.lines[j+1]
 				self.indent_amt = len(next_line) - len(next_line.lstrip())
 				break
 
@@ -118,7 +124,8 @@ class CStyleChecker(object):
 			keyword, switch_ind = self.match_keywords(line)
 			if keyword == "switch":
 				# Find a case
-				term_line, term_ind = self.find_statement_terminator(i, switch_ind)
+				term_line, term_ind = self.find_statement_terminator(i, switch_ind, 
+					include_colon=True)
 				j = term_line + 1
 				while j < len(self.lines):
 					keyword, case_ind = self.match_keywords(self.lines[j])
@@ -131,32 +138,10 @@ class CStyleChecker(object):
 							self.case_indent = self.indent_amt
 					j += 1
 
-
-	def find_left_curly_brace(self, n):
-		in_string = False
-		for i in range(n, len(self.lines)):
-			j = 0
-			while j < len(self.lines[i]):
-				char = self.lines[i][j]
-				if in_string:
-					# If char is escape sequence
-					if char == BACKSLASH:
-						# +2 to skip the next char
-						j += 2
-						continue
-					elif char == DOUBLE_QUOTE:
-						in_string = False
-				else:
-					if char == DOUBLE_QUOTE:
-						in_string = True
-					elif char == LEFT_CURLY:
-						# Return line number where curly brace is, and index of where
-						# it is in the line
-						return i, j
-
-				j += 1
-
-		return None
+	def override_indent_amt(self, indent_amt):
+		self.indent_amt = indent_amt
+		if self.case_indent != 0:
+			self.case_indent = self.indent_amt
 
 	def contains_magic(self, line):
 		# Hack: Add a space at the beginning so the regexp works
@@ -223,6 +208,36 @@ class CStyleChecker(object):
 		# If the range is within the quotes
 		return any([lo > left and hi < right for (left, right) in ranges])
 
+	def within_comment(self, s, lo, hi):
+		# Look left from lo to check for //
+		in_quote = False
+		for i in reversed(range(1, lo)):
+			if not in_quote and (s[i-1] + s[i]) == START_COMMENT:
+				return True
+			if s[i] == DOUBLE_QUOTE and (i == 0 or s[i-1] != BACKSLASH):
+				if in_quote:
+					in_quote = False
+				else:
+					in_quote = True
+
+		in_block_comment = False
+		index = s.find(START_BLOCK_COMMENT)
+		ranges = []
+		if index == -1:
+			return False
+
+		prev = index
+		for i in range(index, len(s)-1):
+			if s[i:i+2] == START_BLOCK_COMMENT:
+				in_block_comment = True
+				prev = i
+			elif s[i:i+2] == END_BLOCK_COMMENT:
+				in_block_comment = False
+				ranges.append((prev, i+2))
+
+		return any([lo > left and hi < right for (left, right) in ranges])
+
+
 	def match_keywords(self, line):
 		for s in CONDITIONALS + UNCONDITIONALS + SWITCH_CASE + OTHERS:
 			if len(line) <= len(s):
@@ -241,18 +256,22 @@ class CStyleChecker(object):
 					if index + len(s) < len(line):
 						right = line[index+len(s)] not in VARS_ALLOWED_CHARS
 					
-					if left and right and not self.within_quotes(line, left, right):
-						return s, index
+					if left and right and not self.within_quotes(line, index, index+len(s)):
+						# Check if it's part of a comment
+						if not self.within_comment(line, index, index+len(s)):
+							return s, index
 
 		return None, -1
 
 	# Look for either the ; or {.
 	# If include_keywords, will also look for the keywords on the following lines
-	def find_statement_terminator(self, n, start, include_keywords=False):
+	def find_statement_terminator(self, n, start, include_colon=False, include_keywords=False):
 		for line_n in range(n, len(self.lines)):
 			lo = start if line_n == n else 0
 			for j in range(lo, len(self.lines[line_n])):
-				if self.lines[line_n][j] in (LEFT_CURLY, SEMICOLON, COLON):
+				terms = (LEFT_CURLY, SEMICOLON, COLON) if include_colon\
+					else (LEFT_CURLY, SEMICOLON)
+				if self.lines[line_n][j] in terms:
 					return line_n, j
 
 			if line_n != n and include_keywords:
@@ -319,8 +338,10 @@ class CStyleChecker(object):
 		match = blck_cmmt_ptrn.match(line)
 		if match:
 			# Find the end of the comment block
+			start = self.lines[n].find(START_BLOCK_COMMENT)
 			for line_n in range(n, len(self.lines)):
-				for j in range(len(self.lines[line_n])-1):
+				lo = start+2 if line_n == n else 0
+				for j in range(lo, len(self.lines[line_n])-1):
 					pair = self.lines[line_n][j] + self.lines[line_n][j+1]
 					if pair == END_BLOCK_COMMENT:
 						# Found the end of the comment block
@@ -627,7 +648,8 @@ class CStyleChecker(object):
 		indent_amt = indent_amt + self.case_indent
 
 		# Look for colon
-		term_line, term_ind = self.find_statement_terminator(lines[0], 0)
+		term_line, term_ind = self.find_statement_terminator(lines[0], 0, 
+			include_colon=True)
 
 		# Check behind colon for anything
 		line = self.lines[term_line]
@@ -689,11 +711,13 @@ class CStyleChecker(object):
 		# Check the part behind } for keywords
 		after = last_line[curly_end[1]+1:]
 		if len(after) != 0:
-			keyword, index = self.match_keywords(after)
-			if keyword is not None:
+			# If the after part is not a comment
+			if not cmmt_ptrn.match(after) and not blck_cmmt_ptrn.match(after):
+				keyword, index = self.match_keywords(after)
 				# If there is a keyword, return this line so that
 				# that could be parsed later
-				return lines[-1]
+				if keyword:
+					return lines[-1]
 			else:
 				self.handle_trailing_string(after, curly_end[0], RIGHT_CURLY)
 		
@@ -722,11 +746,12 @@ class CStyleChecker(object):
 		# Skip the trailing check if it's a do while loop because the while
 		# is behind the }
 		if keyword != "do":
-			keyword, index = self.match_keywords(after)
-			if keyword is not None:
-				# If there is a keyword, return this line so that
-				# that could be parsed later
-				return lines[-1]
+			if not cmmt_ptrn.match(after) and not blck_cmmt_ptrn.match(after):
+				keyword, index = self.match_keywords(after)
+				if keyword is not None:
+					# If there is a keyword, return this line so that
+					# that could be parsed later
+					return lines[-1]
 			else:
 				self.handle_trailing_string(after, curly_end[0], RIGHT_CURLY)
 		else:
@@ -827,7 +852,7 @@ class CStyleChecker(object):
 		for i, l in enumerate(self.lines):
 			if len(l) > LINE_LIMIT:
 				print('Line %d is over %d characters' % (i+1, LINE_LIMIT))
-				print(line)
+				print(l)
 
 	def run(self):
 		self.check_line_limit()
@@ -891,13 +916,36 @@ class CStyleChecker(object):
 
 def usage():
 	print(
-		"Usage: python %s <C filename>\n" % sys.argv[0]
+		"Usage: python %s [-h] -f <C filename> [-i <indent amount>]\n" % sys.argv[0]
 	)
 
 if __name__ == '__main__':
-	if len(sys.argv) <= 1:
+	opts, args = getopt.getopt(sys.argv[1:], "hf:i:", ["help", "file=", "indent="])
+	file = None
+	indent = None
+	for o, a in opts:
+		if o in ("--help", "-h"):
+			usage()
+			sys.exit(0)
+		elif o in ("--file", "-f"):
+			file = a
+		elif o in ("--indent", "-i"):
+			indent = a
+		else:
+			usage()
+			sys.exit(1)
+
+	if file is None:
 		usage()
 		sys.exit(1)
 
-	stl = CStyleChecker(sys.argv[1])
+	stl = CStyleChecker(file)
+	if indent is not None:
+		# Override the checker's indent amount
+		try:
+			stl.override_indent_amt(int(indent))
+		except ValueError:
+			print('Indent must be able to convert to an integer')
+			sys.exit(1)
+
 	stl.run()
