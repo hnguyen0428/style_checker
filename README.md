@@ -10,6 +10,7 @@ What it can check:
 - "Magic" Numbers
 - Commented out code (most of them)
 - Left in TODO comments
+- Check for tabs (style guide uses spaces for C files)
     
 Note: This should only be used as a general guide for styling. The program
 will not always be able to catch every styling mistake nor will the

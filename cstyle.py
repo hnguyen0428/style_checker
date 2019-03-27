@@ -939,10 +939,17 @@ class CStyleChecker(object):
 	def check_line_limit(self):
 		for i, l in enumerate(self.lines):
 			if len(l) > LINE_LIMIT:
-				print('Line %d is over %d characters' % (i+1, LINE_LIMIT))
+				print('Line %d: Over %d characters' % (i+1, LINE_LIMIT))
 				print(l)
 
+	def check_tabs(self):
+		for l in self.og_lines:
+			if l.find(TAB_CHAR) != -1:
+				print('File contains <TAB> characters')
+				break
+
 	def run(self):
+		self.check_tabs()
 		self.check_line_limit()
 
 		i = 0
