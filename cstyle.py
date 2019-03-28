@@ -264,6 +264,18 @@ class CStyleChecker(object):
 
         return False
 
+    # Check if the comment contains TODO or code in it
+    def check_comment(self, s, n):
+        strip = s.lstrip()
+        strip = strip.lstrip(FORWARD_SLASH)
+        if self.is_code(strip):
+            print('Line %d: Commented out code' % (n+1))
+            print(self.lines[n])
+
+        if todo_cmmt_ptrn.match(s):
+            print('Line %d: Left in TODO comment' % (n+1))
+            print(self.lines[n])
+
     def within_quotes(self, s, lo, hi):
         # Capture ranges that are within a string
         ranges = []
@@ -651,6 +663,9 @@ class CStyleChecker(object):
                     print('Line %d: Statements behind %s should be '\
                         'on the next line' % (n+1, terminator))
                     print(self.lines[n])
+                else:
+                    # Check if the comment is a todo comment or commented out code
+                    self.check_comment(trail, n)
 
     def handle_leading_string(self, leading, n, terminator, indent_amt):
         if len(leading) != 0:
@@ -755,15 +770,8 @@ class CStyleChecker(object):
         else:
             self.check_indentation(lines, indent_amt)
 
-        strip = self.lines[lines[0]].lstrip()
-        strip = strip.lstrip(FORWARD_SLASH)
-        if self.is_code(strip):
-            print('Line %d: Commented out code' % (lines[0]+1))
-            print(self.lines[lines[0]])
-
-        if todo_cmmt_ptrn.match(self.lines[lines[0]]):
-            print('Line %d: Left in TODO comment' % (lines[0]+1))
-            print(self.lines[lines[0]])
+        # Check for TODO and commented out code
+        self.check_comment(self.lines[lines[0]], lines[0])
 
         return lines[0] + 1
 

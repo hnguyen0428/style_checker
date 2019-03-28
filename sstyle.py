@@ -268,7 +268,7 @@ class SStyleChecker(object):
     def handle_trailing_string(self, trail, n, terminator):
         if len(trail) != 0:
             # Check if the trailing string is a comment. If it is then it's fine
-            if not cmmt_ptrn.match(trail):
+            if not cmmt_ptrn.match(trail) and len(trail.lstrip()) != 0:
                 print('Line %d: Statements behind %s should be '\
                     'on the next line' % (n+1, terminator))
                 print(self.lines[n])
