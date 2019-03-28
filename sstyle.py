@@ -185,7 +185,10 @@ class SStyleChecker(object):
             end_line, end_ind = end[0], end[1]
             # If line is within range
             if n >= start_line and n <= end_line:
-                if n == start_line:
+                if n == start_line and start_line == end_line:
+                    if lo >= start_ind and lo <= end_ind:
+                        return True
+                elif n == start_line:
                     if lo >= start_ind:
                         return True
                 elif n == end_line:

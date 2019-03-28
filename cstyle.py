@@ -333,7 +333,10 @@ class CStyleChecker(object):
             end_line, end_ind = end[0], end[1]
             # If line is within range
             if n >= start_line and n <= end_line:
-                if n == start_line:
+                if n == start_line and start_line == end_line:
+                    if lo >= start_ind and lo <= end_ind:
+                        return True
+                elif n == start_line:
                     if lo >= start_ind:
                         return True
                 elif n == end_line:
@@ -374,18 +377,30 @@ class CStyleChecker(object):
     def find_statement_terminator(self, n, start, term=None, include_keywords=False):
         for line_n in range(n, len(self.lines)):
             lo = start if line_n == n else 0
+            line = self.lines[line_n]
             for j in range(lo, len(self.lines[line_n])):
                 if term is None:
-                    if self.lines[line_n][j] in (LEFT_CURLY, SEMICOLON):
-                        return line_n, j
+                    if line[j] in (LEFT_CURLY, SEMICOLON):
+                        within_comment = self.within_comment(line, line_n, j, j+1)
+                        within_quotes = self.within_quotes(line, j, j+1)
+                        if not within_comment and not within_quotes:
+                            return line_n, j
                 else:
-                    if self.lines[line_n][j] in term:
-                        return line_n, j
+                    # print('hehe')
+                    # print(self.lines[line_n])
+                    if line[j] in term:
+                        within_comment = self.within_comment(line, line_n, j, j+1)
+                        within_quotes = self.within_quotes(line, j, j+1)
+                        if not within_comment and not within_quotes:
+                            return line_n, j
 
             if line_n != n and include_keywords:
                 keyword, ind = self.match_keywords(self.lines[line_n], line_n)
                 if keyword:
-                    return line_n, ind
+                    within_comment = self.within_comment(line, line_n, ind, ind+len(keyword))
+                    within_quotes = self.within_quotes(line, ind, ind+len(keyword))
+                    if not within_comment and not within_quotes:
+                        return line_n, ind
 
         return -1, -1
 
