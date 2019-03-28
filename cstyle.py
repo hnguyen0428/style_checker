@@ -38,6 +38,9 @@ COMMENT_REGEXP = " *\/\/.*"
 STMT_REGEXP = ".*;"
 WHITE_SPACE_REGEXP = "( |\t)+\Z"
 MAGIC_NUMBER_REGEXP = "[^a-zA-Z0-9_]+(-|)((0x|0|)[0-9]+)"
+# The group index that is the number inside the magic number pattern
+NUM_GROUP_IND = 2
+
 STRING_REGEXP = "(\".*\")"
 CHAR_REGEXP = "(\'.*\')"
 
@@ -54,8 +57,6 @@ KEYWORDS_REGEXP = "( *(if|else if|while|for|switch) *\(.*\))|((continue|break);)
 # Misc
 TODO_COMMENT_REGEXP = " *// *TODO"
 
-# The group index that is the number inside the magic number pattern
-NUM_GROUP_IND = 1
 SWITCH_CASE_REGEXP = " *((case .+ *:)|(default *:))"
 
 
@@ -183,17 +184,16 @@ class CStyleChecker(object):
             match = ptrn.match(s)
             if match:
                 return match
-        return None     
+        return None
 
     def contains_magic(self, line):
         # Hack: Add a space at the beginning so the regexp works
         line = ' ' + line
-        matches = magic_num_ptrn.findall(line)
+        matches = magic_num_ptrn.finditer(line)
         for match in matches:
-            number = match[NUM_GROUP_IND]
+            number = match.group(NUM_GROUP_IND)
             if number not in NON_MAGIC_NUMBERS:
-                index = line.find(number)
-                lo, hi = index, index + len(number)
+                lo, hi = match.start(NUM_GROUP_IND), match.end(NUM_GROUP_IND)
                 in_comment = self.within_comment(line, lo, hi)
                 if not in_comment:
                     return True
@@ -949,6 +949,7 @@ class CStyleChecker(object):
                 break
 
     def run(self):
+        print('')
         self.check_tabs()
         self.check_line_limit()
 
@@ -956,6 +957,8 @@ class CStyleChecker(object):
         while i < len(self.lines):
             group, t = self.parse_line(i)
             i = self.handle_group(group, t, 0, check_magic=False)
+
+        print('')
 
     def test_parse(self):
         names = {
