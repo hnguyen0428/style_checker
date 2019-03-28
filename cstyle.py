@@ -25,6 +25,7 @@ TAB_CHAR = '\t'
 SPACE_CHAR = ' '
 START_BLOCK_COMMENT = '/*'
 END_BLOCK_COMMENT = '*/'
+ASTERISK = '*'
 START_COMMENT = '//'
 SPACE_REPLACEMENT_CHAR = '^'
 
@@ -740,8 +741,10 @@ class CStyleChecker(object):
             else:
                 # For any other line, the * should line up, so indent
                 # amount should be == indent_amt + 1
-                if actual_indent_amt != indent_amt + 1:
-                    indent_error = True
+                # Only check this if they start the comment block with *
+                if stripped_line[0] == ASTERISK:
+                    if actual_indent_amt != indent_amt + 1:
+                        indent_error = True
 
         if indent_error:
             if len(lines) > 1:
