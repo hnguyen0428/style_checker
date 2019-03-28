@@ -379,7 +379,7 @@ class CStyleChecker(object):
                     if self.lines[line_n][j] in (LEFT_CURLY, SEMICOLON):
                         return line_n, j
                 else:
-                    if self.lines[line_n][j] == term:
+                    if self.lines[line_n][j] in term:
                         return line_n, j
 
             if line_n != n and include_keywords:
@@ -518,28 +518,85 @@ class CStyleChecker(object):
             elif keyword in SWITCH_CASE:    # Keyword is case or default
                 # Must get all the statements that belong to this case
                 # that means look for the next case or look for the end of switch (})
+
+                # Look for colon
+                term_line, term_ind = self.find_statement_terminator(n, index, term=COLON)
+                # Look for curly brace if the case uses curly brace. This includes
+                # keywords so we will know if we run into another block that uses curly
+                # brace, not to confuse with the curly brace of the case
+                term_line, term_ind = self.find_statement_terminator(term_line, 
+                    term_ind+1, term=[LEFT_CURLY, SEMICOLON], include_keywords=True)
+                uses_curly = self.lines[term_line][term_ind] == LEFT_CURLY
+
                 count = 1   # Curly brace count starts at 1 because we are within switch
-                group.append(n)
-                for line_n in range(n+1, len(self.lines)):
-                    match = switch_case_regexp.match(self.lines[line_n])
-                    if match:   # If there is a match, we are at the next case
-                        break
 
-                    # Look for matching right curly brace for the switch statement.
-                    # If there is one, then this is the last case in the switch
-                    for j in range(len(self.lines[line_n])):
-                        if self.lines[line_n][j] == LEFT_CURLY:
-                            count += 1
-                        elif self.lines[line_n][j] == RIGHT_CURLY:
-                            count -= 1
-                            if count == 0:
-                                # Include the line with the right brace only if
-                                # it contains statements from the current case
-                                match = white_space_ptrn.match(self.lines[line_n][:j])
-                                if match is None:
-                                    group.append(line_n)
+                # If we don't use curly, then add the current line and inspect lines
+                # below
+                if not uses_curly:
+                    group.append(n)
 
-                                return group, _SWITCH_CASE
+                lo = term_line if uses_curly else n+1
+                for line_n in range(lo, len(self.lines)):
+                    if uses_curly:
+                        # If we use brace then, we will be at the end when we match
+                        # the curly brace
+                        # Look for matching right curly brace for the switch statement.
+                        # If there is one, then this is the last case in the switch
+                        start = term_ind+1 if line_n == term_line else 0
+                        for j in range(start, len(self.lines[line_n])):
+                            if self.lines[line_n][j] == LEFT_CURLY:
+                                # Check if the curly is in a comment or in string
+                                within_quotes = self.within_quotes(self.lines[line_n], 
+                                    j, j+1)
+                                within_comment = self.within_comment(self.lines[line_n], 
+                                    line_n, j, j+1)
+                                if not within_comment and not within_quotes:
+                                    count += 1
+                            elif self.lines[line_n][j] == RIGHT_CURLY:
+                                # Check if the curly is in a comment or in string
+                                within_quotes = self.within_quotes(self.lines[line_n], 
+                                    j, j+1)
+                                within_comment = self.within_comment(self.lines[line_n], 
+                                    line_n, j, j+1)
+                                if not within_comment and not within_quotes:
+                                    count -= 1
+                                    if count == 0:
+                                        group.append(line_n)
+                                        return group, _SWITCH_CASE
+                    else:
+                        # If we don't use curly then if we run into another case, then
+                        # we are at the next case
+                        match = switch_case_regexp.match(self.lines[line_n])
+                        if match:   # If there is a match, we are at the next case
+                            break
+
+                        # Look for matching right curly brace for the switch statement.
+                        # If there is one, then this is the last case in the switch
+                        for j in range(len(self.lines[line_n])):
+                            if self.lines[line_n][j] == LEFT_CURLY:
+                                # Check if the curly is in a comment or in string
+                                within_quotes = self.within_quotes(self.lines[line_n], 
+                                    j, j+1)
+                                within_comment = self.within_comment(self.lines[line_n], 
+                                    line_n, j, j+1)
+                                if not within_comment and not within_quotes:
+                                    count += 1
+                            elif self.lines[line_n][j] == RIGHT_CURLY:
+                                # Check if the curly is in a comment or in string
+                                within_quotes = self.within_quotes(self.lines[line_n], 
+                                    j, j+1)
+                                within_comment = self.within_comment(self.lines[line_n], 
+                                    line_n, j, j+1)
+                                if not within_comment and not within_quotes:
+                                    count -= 1
+                                    if count == 0:
+                                        # Include the line with the right brace only if
+                                        # it contains statements from the current case
+                                        match = white_space_ptrn.match(self.lines[line_n][:j])
+                                        if match is None:
+                                            group.append(line_n)
+
+                                        return group, _SWITCH_CASE
 
                     group.append(line_n)
 
@@ -590,7 +647,7 @@ class CStyleChecker(object):
     def print_lines(self, lines, print_n=False):
         for line_n in lines:
             if print_n:
-                print('%d\t%s' % (line_n+1, self.lines[line_n]))
+                print('%d\t\t%s' % (line_n+1, self.lines[line_n]))
             else:
                 print(self.lines[line_n])
 
@@ -807,19 +864,52 @@ class CStyleChecker(object):
         term_line, term_ind = self.find_statement_terminator(lines[0], 0, 
             term=COLON)
 
-        # Check behind colon for anything
+        self.check_magic([_ for _ in range(lines[0], term_line+1)])
+        term_line2, term_ind2 = self.find_statement_terminator(term_line, 
+                    term_ind+1, term=[LEFT_CURLY, SEMICOLON], include_keywords=True)
+        # Case uses curly braces
+        uses_curly = False
+        if self.lines[term_line2][term_ind2] == LEFT_CURLY:
+            uses_curly = True
+            term_line = term_line2
+            term_ind = term_ind2
+
+        # Check behind colon or curly brace for anything
         line = self.lines[term_line]
         after = line[term_ind+1:]
-        self.handle_trailing_string(after, term_line, COLON)
+        self.handle_trailing_string(after, term_line, LEFT_CURLY if uses_curly else COLON)
 
         # Parse the statements for this case
         i = term_line + 1
-        while i < len(self.lines) and i <= lines[-1]:
+        # If uses curly, we only go up to the second to last line
+        k = lines[-1]-1 if uses_curly else lines[-1]
+        while i < len(self.lines) and i <= k:
             group, t = self.parse_line(i)
             if t == _CMMT:
                 i = self.handle_group(group, t, switch_indent, in_switch=True)
             else:
                 i = self.handle_group(group, t, indent_amt+self.indent_amt, in_switch=True)
+
+        if uses_curly:
+            curly_start, curly_end = self.find_code_block(term_line, term_ind)
+            last_line = self.lines[curly_end[0]]
+            before = last_line[:curly_end[1]]
+            self.handle_leading_string(before, curly_end[0], RIGHT_CURLY, indent_amt)
+            after = last_line[curly_end[1]+1:]
+
+            if len(after) != 0:
+                # If the after part is not a comment
+                if not cmmt_ptrn.match(after) and not blck_cmmt_ptrn.match(after):
+                    keyword, index = self.match_keywords(after, curly_end[0])
+                    # If there is a keyword, return this line so that
+                    # that could be parsed later
+                    if keyword:
+                        print('Line %d: Next case statement should be on the next line'\
+                            % (curly_end[0]+1))
+                        print(self.lines[curly_end[0]])
+                        return lines[-1]
+                else:
+                    self.handle_trailing_string(after, curly_end[0], RIGHT_CURLY)
 
         return lines[-1] + 1
 
@@ -875,8 +965,8 @@ class CStyleChecker(object):
                 # that could be parsed later
                 if keyword:
                     return lines[-1]
-            else:
-                self.handle_trailing_string(after, curly_end[0], RIGHT_CURLY)
+                else:
+                    self.handle_trailing_string(after, curly_end[0], RIGHT_CURLY)
         
         return lines[-1] + 1
 
@@ -909,8 +999,8 @@ class CStyleChecker(object):
                     # If there is a keyword, return this line so that
                     # that could be parsed later
                     return lines[-1]
-            else:
-                self.handle_trailing_string(after, curly_end[0], RIGHT_CURLY)
+                else:
+                    self.handle_trailing_string(after, curly_end[0], RIGHT_CURLY)
         else:
             # If it is do while, check the while condition for magic
             # number

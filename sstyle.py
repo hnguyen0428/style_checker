@@ -199,7 +199,7 @@ class SStyleChecker(object):
     def print_lines(self, lines, print_n=False):
         for line_n in lines:
             if print_n:
-                print('%d\t%s' % (line_n+1, self.lines[line_n]))
+                print('%d\t\t%s' % (line_n+1, self.lines[line_n]))
             else:
                 print(self.lines[line_n])
 
