@@ -48,8 +48,8 @@ CHAR_REGEXP = "(\'.*\')"
 
 # Code detections regular expressions
 C_DIRS_REGEXP = " *\#(define|include|undef|ifdef|ifndef|if|else|elif|endif|error|pragma)"
-FUNC_REGEXP = " *([a-zA-Z_][a-zA-Z0-9_]*) *\** *([a-zA-Z_][a-zA-Z0-9_]*)( )*(\(.*\))"
-FUNC_HDR_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *\** *[a-zA-Z_][a-zA-Z0-9_]*( )*\(.*\) *; *\Z"
+FUNC_REGEXP = " *([a-zA-Z_][a-zA-Z0-9_]*)(\** +| +\**| +\** +)([a-zA-Z_][a-zA-Z0-9_]*)( )*(\(.*\))"
+FUNC_HDR_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]*(\** +| +\**| +\** +)[a-zA-Z_][a-zA-Z0-9_]*( )*\(.*\) *; *\Z"
 ASSIGNMENT_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *=.* *;"
 DEC_ASSIGNMENT_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *\** *[a-zA-Z_][a-zA-Z0-9_]* *=.* *;"
 FUNC_CALL_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *\(.*\) *;"
@@ -150,8 +150,11 @@ class CStyleChecker(object):
                 while j < len(self.lines) and len(self.lines[j].lstrip()) == 0:
                     j += 1
 
-                next_line = self.lines[j]
-                self.indent_amt = len(next_line) - len(next_line.lstrip())
+                if j < len(self.lines):
+                    next_line = self.lines[j]
+                    self.indent_amt = len(next_line) - len(next_line.lstrip())
+                else:
+                    self.indent_amt = TAB_LENGTH
                 break
 
             i = group[-1] + 1
@@ -337,6 +340,8 @@ class CStyleChecker(object):
                 if keyword:
                     return line_n, ind
 
+        return -1, -1
+
     # Look for the beginning ( and end ) of a condition
     # Return two tuples, of location of ( and location of )
     def find_condition(self, n, start):
@@ -503,7 +508,14 @@ class CStyleChecker(object):
             # It is possible that the function was declared in this way
             # In which case, terminator is ;. Solve this by force finding {
             # int foo(c) int c; {}
+
             l, j = self.find_statement_terminator(l, j, term=LEFT_CURLY)
+            if l == -1:
+                print('tf')
+                print(self.lines[n])
+                print('Program ran into an error')
+                sys.exit(1)
+
             start, end = self.find_code_block(l, j)
             group.extend([_ for _ in range(n, end[0]+1)])
             return group, _FUNC
