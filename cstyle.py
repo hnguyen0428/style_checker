@@ -587,9 +587,12 @@ class CStyleChecker(object):
                 group.extend([_ for _ in range(n, l+1)])
                 return group, _STATEMENT
 
-    def print_lines(self, lines):
+    def print_lines(self, lines, print_n=False):
         for line_n in lines:
-            print(self.lines[line_n])
+            if print_n:
+                print('%d\t%s' % (line_n+1, self.lines[line_n]))
+            else:
+                print(self.lines[line_n])
 
     # General case indentation
     # all_exact parameter will make the function do a strict check
@@ -1057,13 +1060,13 @@ class CStyleChecker(object):
                 (start, end) = self.block_cmmts[0]
                 print('\nFile header:')
                 lines = [_ for _ in range(start[0], end[0]+1)]
-                self.print_lines(lines)
+                self.print_lines(lines, print_n=True)
 
                 # Print function headers
                 if len(func_headers) != 0:
                     print('\nFunction headers:')
                     for lines in func_headers:
-                        self.print_lines(lines)
+                        self.print_lines(lines, print_n=True)
                         print('')
                 else:
                     print('\nThere are no function headers')
