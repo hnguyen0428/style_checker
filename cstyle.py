@@ -122,6 +122,7 @@ class CStyleChecker(object):
         self.og_lines = []
         self.lines = []
         self.indent_amt = TAB_LENGTH
+        self.block_cmmts = []
 
         try:
             f = open(filename, "r")
@@ -138,6 +139,8 @@ class CStyleChecker(object):
             l = f.readline()
 
         f.close()
+
+        self.get_block_comments()
 
         # Find the first indented line to figure out the indent amount
         i = 0
@@ -162,14 +165,14 @@ class CStyleChecker(object):
         # Loop through to see which switch indentation convention
         # they use
         for i, line in enumerate(self.lines):
-            keyword, switch_ind = self.match_keywords(line)
+            keyword, switch_ind = self.match_keywords(line, i)
             if keyword == "switch":
                 # Find a case
                 term_line, term_ind = self.find_statement_terminator(i, switch_ind, 
                     term=COLON)
                 j = term_line + 1
                 while j < len(self.lines):
-                    keyword, case_ind = self.match_keywords(self.lines[j])
+                    keyword, case_ind = self.match_keywords(self.lines[j], j)
                     if keyword in SWITCH_CASE:
                         if case_ind - switch_ind == 0:
                             # Case where they do not indent switch case
@@ -184,6 +187,23 @@ class CStyleChecker(object):
         if self.case_indent != 0:
             self.case_indent = self.indent_amt
 
+    def get_block_comments(self):
+        in_block = False
+        start = None
+
+        for i in range(len(self.lines)):
+            line = self.lines[i]
+            for j in range(len(line)-1):
+                if line[j:j+2] == START_BLOCK_COMMENT and not self.within_quotes(line, j, j+2)\
+                    and not self.within_comment(line, i, j, j+2):
+                    in_block = True
+                    start = (i, j)
+                elif line[j:j+2] == END_BLOCK_COMMENT:
+                    in_block = False
+                    end = (i, j+2)
+                    self.block_cmmts.append((start, end))
+                    
+
     def is_code(self, s):
         for ptrn in code_regexp:
             match = ptrn.match(s)
@@ -191,7 +211,7 @@ class CStyleChecker(object):
                 return match
         return None
 
-    def contains_magic(self, line):
+    def contains_magic(self, line, n):
         # Hack: Add a space at the beginning so the regexp works
         line = ' ' + line
         matches = magic_num_ptrn.finditer(line)
@@ -199,7 +219,7 @@ class CStyleChecker(object):
             number = match.group(NUM_GROUP_IND)
             if number not in NON_MAGIC_NUMBERS:
                 lo, hi = match.start(NUM_GROUP_IND), match.end(NUM_GROUP_IND)
-                in_comment = self.within_comment(line, lo, hi)
+                in_comment = self.within_comment(line, n, lo, hi)
                 if not in_comment:
                     return True
 
@@ -216,7 +236,7 @@ class CStyleChecker(object):
                         if line[prev_quote:i+1] not in NON_MAGIC_NUMBERS:
                             index = line.find(line[prev_quote:i+1])
                             lo, hi = index, index + len(line[prev_quote:i+1])
-                            in_comment = self.within_comment(line, lo, hi)
+                            in_comment = self.within_comment(line, n, lo, hi)
                             if not in_comment:
                                 return True
                     else:
@@ -235,7 +255,7 @@ class CStyleChecker(object):
                         if line[prev_quote:i+1] not in NON_MAGIC_NUMBERS:
                             index = line.find(line[prev_quote:i+1])
                             lo, hi = index, index + len(line[prev_quote:i+1])
-                            in_comment = self.within_comment(line, lo, hi)
+                            in_comment = self.within_comment(line, n, lo, hi)
                             if not in_comment:
                                 return True
                     else:
@@ -267,7 +287,8 @@ class CStyleChecker(object):
         # If the range is within the quotes
         return any([lo > left and hi < right for (left, right) in ranges])
 
-    def within_comment(self, s, lo, hi):
+    # s is the line, n is the line number
+    def within_comment(self, s, n, lo, hi):
         # Look left from lo to check for //
         in_quote = False
         for i in reversed(range(1, lo)):
@@ -279,25 +300,24 @@ class CStyleChecker(object):
                 else:
                     in_quote = True
 
-        in_block_comment = False
-        index = s.find(START_BLOCK_COMMENT)
-        ranges = []
-        if index == -1:
-            return False
+        # Check if the string is within a block comment
+        for (start, end) in self.block_cmmts:
+            start_line, start_ind = start[0], start[1]
+            end_line, end_ind = end[0], end[1]
+            # If line is within range
+            if n >= start_line and n <= end_line:
+                if n == start_line:
+                    if lo >= start_ind:
+                        return True
+                elif n == end_line:
+                    if lo <= end_ind:
+                        return True
+                else:
+                    return True
 
-        prev = index
-        for i in range(index, len(s)-1):
-            if s[i:i+2] == START_BLOCK_COMMENT:
-                in_block_comment = True
-                prev = i
-            elif s[i:i+2] == END_BLOCK_COMMENT:
-                in_block_comment = False
-                ranges.append((prev, i+2))
+        return False
 
-        return any([lo > left and hi < right for (left, right) in ranges])
-
-
-    def match_keywords(self, line):
+    def match_keywords(self, line, n):
         for s in CONDITIONALS + UNCONDITIONALS + SWITCH_CASE + OTHERS:
             if len(line) <= len(s):
                 if line.startswith(s):
@@ -317,7 +337,7 @@ class CStyleChecker(object):
                     
                     if left and right and not self.within_quotes(line, index, index+len(s)):
                         # Check if it's part of a comment
-                        if not self.within_comment(line, index, index+len(s)):
+                        if not self.within_comment(line, n, index, index+len(s)):
                             return s, index
 
         return None, -1
@@ -336,7 +356,7 @@ class CStyleChecker(object):
                         return line_n, j
 
             if line_n != n and include_keywords:
-                keyword, ind = self.match_keywords(self.lines[line_n])
+                keyword, ind = self.match_keywords(self.lines[line_n], line_n)
                 if keyword:
                     return line_n, ind
 
@@ -367,13 +387,24 @@ class CStyleChecker(object):
         num_brace = 0
         for line_n in range(n, len(self.lines)):
             lo = start if line_n == n else 0
+            line = self.lines[line_n]
             for j in range(lo, len(self.lines[line_n])):
                 if self.lines[line_n][j] == LEFT_CURLY:
-                    num_brace += 1
+                    # Make sure that this curly is not part of a string or a comment
+                    lo, hi = j, j+1
+                    within_quotes = self.within_quotes(line, lo, hi)
+                    within_comment = self.within_comment(line, line_n, lo, hi)
+                    if not within_quotes and not within_comment:
+                        num_brace += 1
                 elif self.lines[line_n][j] == RIGHT_CURLY:
-                    num_brace -= 1
-                    if num_brace == 0:
-                        return (n, start), (line_n, j)
+                    # Make sure that this curly is not part of a string or a comment
+                    lo, hi = j, j+1
+                    within_quotes = self.within_quotes(line, lo, hi)
+                    within_comment = self.within_comment(line, line_n, lo, hi)
+                    if not within_quotes and not within_comment:
+                        num_brace -= 1
+                        if num_brace == 0:
+                            return (n, start), (line_n, j)
 
 
     # Check what kind of statement starting from this line
@@ -413,7 +444,7 @@ class CStyleChecker(object):
 
                 group.append(line_n)
 
-        keyword, index = self.match_keywords(self.lines[n])
+        keyword, index = self.match_keywords(self.lines[n], n)
         if keyword:
             if keyword in CONDITIONALS:
                 start, end = self.find_condition(n, index)
@@ -576,7 +607,7 @@ class CStyleChecker(object):
 
     def check_magic(self, lines):
         for line_n in lines:
-            has_magic = self.contains_magic(self.lines[line_n])
+            has_magic = self.contains_magic(self.lines[line_n], line_n)
             if has_magic:
                 print('Line %d: Contains magic number/word' % (line_n+1))
                 print(self.lines[line_n])
@@ -771,7 +802,7 @@ class CStyleChecker(object):
     def handle_cond(self, lines, indent_amt):
         first_line = self.lines[lines[0]]
         # print(first_line)
-        keyword, index = self.match_keywords(first_line)
+        keyword, index = self.match_keywords(first_line, lines[0])
         is_switch = keyword == "switch"
 
         # Parse the condition first
@@ -811,7 +842,7 @@ class CStyleChecker(object):
         if len(after) != 0:
             # If the after part is not a comment
             if not cmmt_ptrn.match(after) and not blck_cmmt_ptrn.match(after):
-                keyword, index = self.match_keywords(after)
+                keyword, index = self.match_keywords(after, curly_end[0])
                 # If there is a keyword, return this line so that
                 # that could be parsed later
                 if keyword:
@@ -839,13 +870,13 @@ class CStyleChecker(object):
         # First check the part before the } for code
         self.handle_leading_string(before, curly_end[0], RIGHT_CURLY, indent_amt)
 
-        keyword, index = self.match_keywords(self.lines[lines[0]])
+        keyword, index = self.match_keywords(self.lines[lines[0]], lines[0])
         after = last_line[curly_end[1]+1:]
         # Skip the trailing check if it's a do while loop because the while
         # is behind the }
         if keyword != "do":
             if not cmmt_ptrn.match(after) and not blck_cmmt_ptrn.match(after):
-                keyword, index = self.match_keywords(after)
+                keyword, index = self.match_keywords(after, curly_end[0])
                 if keyword is not None:
                     # If there is a keyword, return this line so that
                     # that could be parsed later
@@ -1021,7 +1052,7 @@ class CStyleChecker(object):
     def test_magic(self):
         for i in range(len(self.lines)):
             line = self.lines[i]
-            magic = self.contains_magic(line)
+            magic = self.contains_magic(line, i)
             if magic:
                 print('Line %d: Contains magic number' % (i+1))
                 print(line)
