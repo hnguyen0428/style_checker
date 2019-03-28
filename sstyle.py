@@ -60,11 +60,13 @@ NON_MAGIC_NUMBERS = [
 ]
 
 class SStyleChecker(object):
-    def __init__(self, filename):
+    def __init__(self, filename, print_headers=False):
         self.lines = []
         self.og_lines = []
         self.indent_amt = TAB_LENGTH
         self.used_space_lines = []
+        self.block_cmmts = []
+        self.print_headers = print_headers
 
         try:
             f = open(filename, "r")
@@ -83,7 +85,9 @@ class SStyleChecker(object):
 
         f.close()
 
-    def contains_magic(self, line):
+        self.get_block_comments()
+
+    def contains_magic(self, line, n):
         # Hack: Add a space at the beginning so the regexp works
         line = ' ' + line
         matches = magic_num_ptrn.finditer(line)
@@ -91,7 +95,7 @@ class SStyleChecker(object):
             number = match.group(NUM_GROUP_IND)
             if number not in NON_MAGIC_NUMBERS:
                 lo, hi = match.start(NUM_GROUP_IND), match.end(NUM_GROUP_IND)
-                in_comment = self.within_comment(line, lo, hi)
+                in_comment = self.within_comment(line, n, lo, hi)
                 if not in_comment:
                     return True
 
@@ -108,7 +112,7 @@ class SStyleChecker(object):
                         if line[prev_quote:i+1] not in NON_MAGIC_NUMBERS:
                             index = line.find(line[prev_quote:i+1])
                             lo, hi = index, index + len(line[prev_quote:i+1])
-                            in_comment = self.within_comment(line, lo, hi)
+                            in_comment = self.within_comment(line, n, lo, hi)
                             if not in_comment:
                                 return True
                     else:
@@ -127,7 +131,7 @@ class SStyleChecker(object):
                         if line[prev_quote:i+1] not in NON_MAGIC_NUMBERS:
                             index = line.find(line[prev_quote:i+1])
                             lo, hi = index, index + len(line[prev_quote:i+1])
-                            in_comment = self.within_comment(line, lo, hi)
+                            in_comment = self.within_comment(line, n, lo, hi)
                             if not in_comment:
                                 return True
                     else:
@@ -159,10 +163,9 @@ class SStyleChecker(object):
         # If the range is within the quotes
         return any([lo > left and hi < right for (left, right) in ranges])
 
-    def within_comment(self, s, lo, hi):
-        # Look left from lo to check for //
+    def within_comment(self, s, n, lo, hi):
+        # Look left from lo to check for //, @, #
         in_quote = False
-        # print(s)
         for i in reversed(range(1, lo)):
             if not in_quote and (s[i-1] + s[i]) == START_COMMENT_SLASH:
                 return True
@@ -176,22 +179,42 @@ class SStyleChecker(object):
                 else:
                     in_quote = True
 
-        in_block_comment = False
-        index = s.find(START_BLOCK_COMMENT)
-        ranges = []
-        if index == -1:
-            return False
+        # Check if the string is within a block comment
+        for (start, end) in self.block_cmmts:
+            start_line, start_ind = start[0], start[1]
+            end_line, end_ind = end[0], end[1]
+            # If line is within range
+            if n >= start_line and n <= end_line:
+                if n == start_line:
+                    if lo >= start_ind:
+                        return True
+                elif n == end_line:
+                    if lo <= end_ind:
+                        return True
+                else:
+                    return True
 
-        prev = index
-        for i in range(index, len(s)-1):
-            if s[i:i+2] == START_BLOCK_COMMENT:
-                in_block_comment = True
-                prev = i
-            elif s[i:i+2] == END_BLOCK_COMMENT:
-                in_block_comment = False
-                ranges.append((prev, i+2))
+        return False
 
-        return any([lo > left and hi < right for (left, right) in ranges])
+    def print_lines(self, lines):
+        for line_n in lines:
+            print(self.lines[line_n])
+
+    def get_block_comments(self):
+        in_block = False
+        start = None
+
+        for i in range(len(self.lines)):
+            line = self.lines[i]
+            for j in range(len(line)-1):
+                if line[j:j+2] == START_BLOCK_COMMENT and not self.within_quotes(line, j, j+2)\
+                    and not self.within_comment(line, i, j, j+2):
+                    in_block = True
+                    start = (i, j)
+                elif line[j:j+2] == END_BLOCK_COMMENT:
+                    in_block = False
+                    end = (i, j+2)
+                    self.block_cmmts.append((start, end))
 
     def parse_line(self, n):
         line = self.lines[n]
@@ -311,7 +334,7 @@ class SStyleChecker(object):
 
     def handle_instruction(self, lines):
         self.check_indentation(lines[0], _INSTRUCTION)
-        magic = self.contains_magic(self.lines[lines[0]])
+        magic = self.contains_magic(self.lines[lines[0]], lines[0])
         if magic:
             print('Line %d: Contains magic number' % (lines[0]+1))
             print(self.lines[lines[0]])
@@ -358,30 +381,72 @@ class SStyleChecker(object):
         print('')
         self.check_line_limit()
 
+        # Collect function headers
+        func_headers = []
+
         i = 0
+        prev_type = None
+        prev_group = None
         while i < len(self.lines):
             group, t = self.parse_line(i)
             i = self.handle_group(group, t)
 
+            # Collect headers
+            if t == _BLOCK_CMMT:
+                prev_type = _BLOCK_CMMT
+                prev_group = group
+            elif t == _LABEL and prev_type == _BLOCK_CMMT:
+                # Join the function header lines with the function declaration
+                new_group = prev_group + group
+                func_headers.append(new_group)
+            elif t != _EMPTY_LINE:
+                # If the type is not the empty line then we clear memory
+                # of seeing a block comment
+                prev_type = None
+
         self.check_space_indentation()
+
+        if self.print_headers:
+            # Print the file header first, which is the first block of comment
+            if len(self.block_cmmts) != 0:
+                (start, end) = self.block_cmmts[0]
+                print('\nFile header:')
+                lines = [_ for _ in range(start[0], end[0]+1)]
+                self.print_lines(lines)
+
+                # Print function headers
+                if len(func_headers) != 0:
+                    print('\nFunction headers:')
+                    for lines in func_headers:
+                        self.print_lines(lines)
+                        print('')
+                else:
+                    print('\nThere are no function headers')
+            else:
+                print('\nNo file/function headers')
+
         print('')
 
 def usage():
     print(
         ("Usage: python %s [-h] -f <C filename>\n" % sys.argv[0]) +
         "\t-h/--help: Show help message\n" +
-        "\t-f/--file: Filename to style check (required argument)\n"
+        "\t-f/--file: Filename to style check (required argument)\n" +
+        "\t-p/--print-headers: If passed, program will print the file/function headers\n"
     )
 
 if __name__ == '__main__':
-    opts, args = getopt.getopt(sys.argv[1:], "hf:", ["help", "file="])
+    opts, args = getopt.getopt(sys.argv[1:], "hf:p", ["help", "file=", "print-headers"])
     file = None
+    print_headers = False
     for o, a in opts:
         if o in ("--help", "-h"):
             usage()
             sys.exit(0)
         elif o in ("--file", "-f"):
             file = a
+        elif o in ("--print-headers", "-p"):
+            print_headers = True
         else:
             usage()
             sys.exit(1)
@@ -390,5 +455,5 @@ if __name__ == '__main__':
         usage()
         sys.exit(1)
 
-    stl = SStyleChecker(file)
+    stl = SStyleChecker(file, print_headers=print_headers)
     stl.run()

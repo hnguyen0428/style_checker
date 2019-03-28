@@ -47,10 +47,23 @@ NUM_GROUP_IND = 2
 STRING_REGEXP = "(\".*\")"
 CHAR_REGEXP = "(\'.*\')"
 
+# Covers most cases of return types for functions
+FUNC_KEYWORDS = [
+    'static *', 'const *', 'struct *', 'static struct *', 'const struct *', 'enum *',
+    'static enum *', 'const enum *', 'unsigned *', 'static unsigned *', 'const unsigned *',
+    'long *', 'static long *', 'const long *', 'signed *', 'static signed *', 'const signed *',
+    'unsigned short *', 'static unsigned short *', 'const unsigned short *',
+    'short *', 'static short *', 'const short *', 'unsigned long *', 'static unsigned long *',
+    'const unsigned long *', 'long long *', 'static long long *', 'const long long *',
+    'unsigned long long *', 'static unsigned long long *', 'const unsigned long long *'
+]
+
 # Code detections regular expressions
 C_DIRS_REGEXP = " *\#(define|include|undef|ifdef|ifndef|if|else|elif|endif|error|pragma)"
-FUNC_REGEXP = " *([a-zA-Z_][a-zA-Z0-9_]*)(\** +| +\**| +\** +)([a-zA-Z_][a-zA-Z0-9_]*)( )*(\(.*\))"
-FUNC_HDR_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]*(\** +| +\**| +\** +)[a-zA-Z_][a-zA-Z0-9_]*( )*\(.*\) *; *\Z"
+FUNC_REGEXP = (" *(%s|)" % "|".join(FUNC_KEYWORDS)) +\
+"([a-zA-Z_][a-zA-Z0-9_]*)(\** +| +\**| +\** +)([a-zA-Z_][a-zA-Z0-9_]*)( )*(\(.*\))"
+FUNC_HDR_REGEXP = (" *(%s|)" % "|".join(FUNC_KEYWORDS)) +\
+"[a-zA-Z_][a-zA-Z0-9_]*(\** +| +\**| +\** +)[a-zA-Z_][a-zA-Z0-9_]*( )*\(.*\) *; *\Z"
 ASSIGNMENT_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *=.* *;"
 DEC_ASSIGNMENT_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *\** *[a-zA-Z_][a-zA-Z0-9_]* *=.* *;"
 FUNC_CALL_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *\(.*\) *;"
@@ -118,8 +131,9 @@ NON_MAGIC_NUMBERS = [
 ]
 
 class CStyleChecker(object):
-    def __init__(self, filename, check_whitespace=True):
+    def __init__(self, filename, check_whitespace=True, print_headers=False):
         self.check_ws = check_whitespace
+        self.print_headers = print_headers
         self.og_lines = []
         self.lines = []
         self.indent_amt = TAB_LENGTH
@@ -1009,64 +1023,54 @@ class CStyleChecker(object):
         self.check_tabs()
         self.check_line_limit()
 
+        # Collect function headers
+        func_headers = []
+
         i = 0
+        # The way to keep track of function header is to check the type
+        # If the type is a block comment, record that. Then when a function
+        # type follows, it is most likely the function header
+        prev_type = None
+        prev_group = None
         while i < len(self.lines):
             group, t = self.parse_line(i)
             i = self.handle_group(group, t, 0, check_magic=False)
 
+            # Collect headers
+            if t == _BLOCK_CMMT:
+                prev_type = _BLOCK_CMMT
+                prev_group = group
+            elif t == _FUNC and prev_type == _BLOCK_CMMT:
+                # Is a function header
+                term_line, term_ind = self.find_statement_terminator(group[0], 0, term=LEFT_CURLY)
+                # Join the function header lines with the function declaration
+                new_group = prev_group + [_ for _ in range(group[0], term_line+1)]
+                func_headers.append(new_group)
+            elif t != _EMPTY_LINE:
+                # If the type is not the empty line then we clear memory
+                # of seeing a block comment
+                prev_type = None
+
+        if self.print_headers:
+            # Print the file header first, which is the first block of comment
+            if len(self.block_cmmts) != 0:
+                (start, end) = self.block_cmmts[0]
+                print('\nFile header:')
+                lines = [_ for _ in range(start[0], end[0]+1)]
+                self.print_lines(lines)
+
+                # Print function headers
+                if len(func_headers) != 0:
+                    print('\nFunction headers:')
+                    for lines in func_headers:
+                        self.print_lines(lines)
+                        print('')
+                else:
+                    print('\nThere are no function headers')
+            else:
+                print('\nNo file/function headers')
+
         print('')
-
-    def test_parse(self):
-        names = {
-            _BLOCK_CMMT: 'Block Comment',
-            _CMMT: 'Comment',
-            _DIRECTIVE: 'C Directive',
-            _CONDITIONAL: 'Conditional',
-            _UNCONDITIONAL: 'Unconditional',
-            _FUNC: 'Function',
-            _STATEMENT: 'Statement',
-            _STRUCTURE: 'Structures',
-            _EMPTY_LINE: 'Empty Line',
-            _SWITCH_CASE: 'Switch Case'
-        }
-        i = 0
-        while i < len(self.lines):
-            group, t = self.parse_line(i)
-            print('Found a/an %s' % names[t])
-
-            for l in group:
-                print(self.lines[l])
-
-            if t == _FUNC:
-                j = group[1]
-                while j < group[-1]:
-                    g, t2 = self.parse_line(j)
-                    print('Found a/an %s' % names[t2])
-
-                    for l in g:
-                        print(self.lines[l])
-
-                    if t2 == _CONDITIONAL:
-                        k = g[1]
-                        while k < group[-1]:
-                            g3, t3 = self.parse_line(k)
-                            print('Found a/an %s' % names[t3])
-                            for l in g3:
-                                print(self.lines[l])
-
-                            k = g3[-1] + 1
-
-                    j = g[-1] + 1
-
-            i = group[-1] + 1
-
-    def test_magic(self):
-        for i in range(len(self.lines)):
-            line = self.lines[i]
-            magic = self.contains_magic(line, i)
-            if magic:
-                print('Line %d: Contains magic number' % (i+1))
-                print(line)
 
 def usage():
     print(
@@ -1074,14 +1078,17 @@ def usage():
         "\t-h/--help: Show help message\n" +
         "\t-f/--file: Filename to style check (required argument)\n" +
         "\t-i/--indent: Indentation amount\n" +
-        "\t-w/--whitespace-check: Use excess white space check\n"
+        "\t-w/--whitespace-check: Use excess white space check\n" +
+        "\t-p/--print-headers: If passed, program will print the file/function headers\n"
     )
 
 if __name__ == '__main__':
-    opts, args = getopt.getopt(sys.argv[1:], "hf:i:w", ["help", "file=", "indent=", "whitespace-check"])
+    opts, args = getopt.getopt(sys.argv[1:], "hf:i:wp", ["help", "file=", 
+        "indent=", "whitespace-check", "print-headers"])
     file = None
     indent = None
     check_whitespace = False
+    print_headers = False
     for o, a in opts:
         if o in ("--help", "-h"):
             usage()
@@ -1092,6 +1099,8 @@ if __name__ == '__main__':
             indent = a
         elif o in ("--whitespace-check", "-w"):
             check_whitespace = True
+        elif o in ("--print-headers", "-p"):
+            print_headers = True
         else:
             usage()
             sys.exit(1)
@@ -1100,7 +1109,8 @@ if __name__ == '__main__':
         usage()
         sys.exit(1)
 
-    stl = CStyleChecker(file, check_whitespace=check_whitespace)
+    stl = CStyleChecker(file, check_whitespace=check_whitespace,
+        print_headers=print_headers)
     if indent is not None:
         # Override the checker's indent amount
         try:
