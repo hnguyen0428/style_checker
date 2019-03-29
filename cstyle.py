@@ -138,6 +138,10 @@ NON_MAGIC_NUMBERS = [
     '\"rb+\"', '\"wb+\"', '\"ab+\"'
     # Note there are more but these are the ones for now
 ]
+# How much should the next line be indented in if it's part of the same clause
+# For example, if an if condition is too long and goes on to the next line
+# Then the next line should be indented in by an extra NEXT_LINE_INDENT
+NEXT_LINE_INDENT = 2
 
 matchers = {
     '{': '}',
@@ -242,6 +246,8 @@ class CStyleChecker(object):
                     break
 
                 i = block.lines[-1] + 1
+
+            print('Detected Indent Amount of %d' % self.indent_amt)
 
         # Loop through to see which switch indentation convention
         # they use
@@ -835,6 +841,8 @@ class CStyleChecker(object):
     # up to the indent_amt
     def check_indentation(self, lines, indent_amt, all_exact=False, relax=False):
         indent_error = False
+        cont_indent_error = False
+        guides = []
         for line_n in lines:
             # Replace tabs with spaces
             line = self.lines[line_n]
@@ -860,15 +868,31 @@ class CStyleChecker(object):
                 else:
                     # For any other line, the statement must be indented
                     # at least indent_amt in
-                    if actual_indent_amt < indent_amt:
+                    if actual_indent_amt < indent_amt + NEXT_LINE_INDENT:
                         indent_error = True
+                        cont_indent_error = True
+                        non_space_ind = actual_indent_amt
+                        guides.append((line_n, self.generate_guide(line, [non_space_ind])))
+                    else:
+                        guides.append((line_n, None))
 
         if indent_error:
             if len(lines) > 1:
                 print('Line %d to %d: Inconsistent Indentation' % (lines[0]+1, lines[-1]+1))
             else:
                 print('Line %d: Inconsistent Indentation' % (lines[0]+1))
-            self.print_lines(lines)
+
+            if cont_indent_error:
+                print(self.lines[lines[0]])
+                for (l, guide) in guides:
+                    print(self.lines[l])
+                    if guide:
+                        print(guide)
+
+                print('  Continuation from the previous line must be '
+                      'indented in by %d' % self.indent_amt)
+            else:
+                self.print_lines(lines)
 
     def check_magic(self, lines):
         for line_n in lines:
