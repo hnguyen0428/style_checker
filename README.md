@@ -42,13 +42,15 @@ What it can check:
 - Will not automatically check for file/function headers but can
 print them out for manual checking.
     
-Note: This should only be used as a general guide for styling. The program
-will not always be able to catch every styling mistake nor will the
-mistakes that it catches always be a styling error.
-    
 ### Usage
 
     - Usage: python sstyle.py [-h] -f <C filename>
                 -h/--help: Show help message
                 -f/--file: Filename to style check (required argument)
                 -p/--print-headers: If passed, program will print the file/function headers
+                
+                
+ 
+Note: This should only be used as a general guide for styling. The program
+will not always be able to catch every styling mistake nor will the
+mistakes that it catches always be a styling error.
