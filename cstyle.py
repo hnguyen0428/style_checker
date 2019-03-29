@@ -64,15 +64,17 @@ FUNC_KEYWORDS = [
 # Code detections regular expressions
 C_DIRS_REGEXP = " *\#(define|include|undef|ifdef|ifndef|if|else|elif|endif|error|pragma)"
 FUNC_REGEXP = (" *(%s|)" % "|".join(FUNC_KEYWORDS)) +\
-    "([a-zA-Z_][a-zA-Z0-9_]*)(\** +| +\**| +\** +)([a-zA-Z_][a-zA-Z0-9_]*)( )*(\(.*\))"
+    "(%s)(\** +| +\**| +\** +)(%s)( )*(\(.*\))" % (STD_CHARS_REGEXP, STD_CHARS_REGEXP)
 FUNC_HDR_REGEXP = (" *(%s|)" % "|".join(FUNC_KEYWORDS)) +\
-    "[a-zA-Z_][a-zA-Z0-9_]*(\** +| +\**| +\** +)[a-zA-Z_][a-zA-Z0-9_]*( )*\(.*\) *; *\Z"
-ASSIGNMENT_REGEXP = " *(\** *)[a-zA-Z_][a-zA-Z0-9_]* *=.* *;"
-DEC_ASSIGNMENT_REGEXP = " *(%s|)[a-zA-Z_][a-zA-Z0-9_]*(\** +| +\**| +\** +)[a-zA-Z_][a-zA-Z0-9_]* *=.* *;"\
-                        % "|".join(FUNC_KEYWORDS)
+    "%s(\** +| +\**| +\** +)%s( )*\(.*\) *; *\Z" % (STD_CHARS_REGEXP, STD_CHARS_REGEXP)
+ASSIGNMENT_REGEXP = " *(\** *)%s *=.* *;" % (STD_CHARS_REGEXP)
+DEC_ASSIGNMENT_REGEXP = " *(%s|)%s(\** +| +\**| +\** +)%s( *, *%s)* *=.* *;"\
+                        % ("|".join(FUNC_KEYWORDS), STD_CHARS_REGEXP,
+                           STD_CHARS_REGEXP, STD_CHARS_REGEXP)
 FUNC_CALL_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *\(.*\) *;"
-DECLARATIONS_REGEXP = " *(%s|)[a-zA-Z_][a-zA-Z0-9_]*(\** +| +\**| +\** +)[a-zA-Z_][a-zA-Z0-9_]* *;"\
-                      % "|".join(FUNC_KEYWORDS)
+DECLARATIONS_REGEXP = " *(%s|)%s(\** +| +\**| +\** +)%s( *, *%s)* *;"\
+                      % ("|".join(FUNC_KEYWORDS), STD_CHARS_REGEXP,
+                         STD_CHARS_REGEXP, STD_CHARS_REGEXP)
 KEYWORDS_REGEXP = "( *(if|else if|while|for|switch) *\(.*\))|((continue|break);)"
 
 # Misc
