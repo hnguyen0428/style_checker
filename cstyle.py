@@ -1378,7 +1378,8 @@ def usage():
         "\t-f/--file: Filename to style check (required argument)\n" +
         "\t-i/--indent: Indentation amount\n" +
         "\t-w/--whitespace-check: Use excess white space check\n" +
-        "\t-p/--print-headers: If passed, program will print the file/function headers\n"
+        "\t-p/--print-headers: If passed, program will print the file/function headers\n" +
+        "\t-s/--strict-check: If passed, programm will check style in strict mode\n"
     )
 
 if __name__ == '__main__':

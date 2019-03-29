@@ -13,6 +13,11 @@ What it can check:
 - Check for tabs (style guide uses spaces for C files)
 - Will not automatically check for file/function headers but can
 print them out for manual checking.
+- Spacings for if/else/etc...
+  - For example, there should be space between if and condition in if (condition)
+  - Curly brace on the same line. e.g.: if (condition) {
+  - Checks if if/else has curly braces even for one liner
+  - And some more...
 
 ### Usage
 
@@ -22,6 +27,7 @@ print them out for manual checking.
                 -i/--indent: Indentation amount
                 -w/--whitespace-check: Use excess white space check
                 -p/--print-headers: If passed, program will print the file/function headers
+                -s/--strict-check: If passed, programm will check style in strict mode
     
 ## sstyle.py
 A style checker/linter for ARM assembly files.
