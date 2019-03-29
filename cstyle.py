@@ -187,13 +187,13 @@ class CodeBlock(object):
 
 class CStyleChecker(object):
     def __init__(self, filename, check_whitespace=True,
-                 print_headers=False, strict=False):
+                 print_headers=False, strict=False, indent_amt=None):
         self.check_ws = check_whitespace
         self.print_headers = print_headers
         self.strict = strict
         self.og_lines = []
         self.lines = []
-        self.indent_amt = TAB_LENGTH
+        self.indent_amt = TAB_LENGTH if indent_amt is None else indent_amt
         self.block_cmmts = []
 
         try:
@@ -216,50 +216,52 @@ class CStyleChecker(object):
         self.get_block_comments()
 
         # Find the first indented line to figure out the indent amount
-        i = 0
-        while i < len(self.lines):
-            block = self.parse_line(i)
-            t = block.get_type()
-            if t == _FUNC:
-                term_line, term_ind = block.term_loc[0], block.term_loc[1]
-                # Use the first non empty line as the basis for indent amount
-                j = term_line + 1
-                while j < len(self.lines) and len(self.lines[j].lstrip()) == 0:
-                    j += 1
+        if indent_amt is None:
+            i = 0
+            while i < len(self.lines):
+                block = self.parse_line(i)
+                t = block.get_type()
+                if t == _FUNC:
+                    term_line, term_ind = block.term_loc[0], block.term_loc[1]
+                    # Use the first non empty line as the basis for indent amount
+                    j = term_line + 1
+                    while j < len(self.lines) and len(self.lines[j].lstrip()) == 0:
+                        j += 1
 
-                if j < len(self.lines):
-                    next_line = self.lines[j]
-                    self.indent_amt = len(next_line) - len(next_line.lstrip())
-                else:
-                    self.indent_amt = TAB_LENGTH
-                break
+                    if j < len(self.lines):
+                        next_line = self.lines[j]
+                        self.indent_amt = len(next_line) - len(next_line.lstrip())
+                    else:
+                        self.indent_amt = TAB_LENGTH
+                    break
 
-            i = block.lines[-1] + 1
+                i = block.lines[-1] + 1
 
         # Loop through to see which switch indentation convention
         # they use
         for i, line in enumerate(self.lines):
+            done = False
             keyword, switch_ind = self.match_keywords(line, i)
             if keyword == "switch":
                 # Find a case
-                term_line, term_ind = self.find_statement_terminator(i, switch_ind, 
+                term_line, term_ind = self.find_statement_terminator(i, switch_ind,
                                         term=COLON)
-                j = term_line + 1
+                j = term_line
                 while j < len(self.lines):
                     keyword, case_ind = self.match_keywords(self.lines[j], j)
                     if keyword in SWITCH_CASE:
+                        done = True
                         if case_ind - switch_ind == 0:
                             # Case where they do not indent switch case
                             self.case_indent = 0
+                            break
                         else:
                             # Case where they do indent switch case
                             self.case_indent = self.indent_amt
+                            break
                     j += 1
-
-    def override_indent_amt(self, indent_amt):
-        self.indent_amt = indent_amt
-        if self.case_indent != 0:
-            self.case_indent = self.indent_amt
+            if done:
+                break
 
     def get_block_comments(self):
         start = None
@@ -321,7 +323,7 @@ class CStyleChecker(object):
                     else:
                         in_quote = True
                         prev_quote = i
-        
+
         index = line.find(SINGLE_QUOTE)
         if index != -1:
             prev_quote = index
@@ -690,7 +692,7 @@ class CStyleChecker(object):
                 # keywords so we will know if we run into another block that uses curly
                 # brace, not to confuse with the curly brace of the case. If it runs
                 # into a curly brace first, then the case uses curly brace
-                term_line, term_ind = self.find_statement_terminator(term_line, 
+                term_line, term_ind = self.find_statement_terminator(term_line,
                     term_ind+1, term=[LEFT_CURLY, SEMICOLON], include_keywords=True)
                 uses_curly = self.lines[term_line][term_ind] == LEFT_CURLY
                 block.uses_curly = uses_curly
@@ -823,7 +825,7 @@ class CStyleChecker(object):
     # General case indentation
     # all_exact parameter will make the function do a strict check
     # with exact indentation match
-    # relax parameter will only check if the actual indent amount is at least 
+    # relax parameter will only check if the actual indent amount is at least
     # up to the indent_amt
     def check_indentation(self, lines, indent_amt, all_exact=False, relax=False):
         indent_error = False
@@ -957,7 +959,7 @@ class CStyleChecker(object):
             # line. For example: if (condition) print(something);
             if term_line == lines[0]:
                 return term_line + 1
-            
+
             # Must handle case where we have
             # if (condition1)
             #   if (condition2)
@@ -1002,7 +1004,7 @@ class CStyleChecker(object):
                 self.print_lines([_ for _ in range(block.prev_rcurly[0],
                                                    block.start[0]+1)])
             else:
-                print('Line %d: %s block and } must be separated with a space'\
+                print('Line %d: %s block must start within one space of }'\
                       % (block.start[0]+1, block.keyword))
                 print(line)
                 print(self.generate_guide(line, [loc1[1], loc2[1]]))
@@ -1298,7 +1300,7 @@ class CStyleChecker(object):
                 else:
                     print('Line %d to %d: Extra whitespace on empty lines' % (lines[0]+1, lines[-1]+1))
                     # Replace white space with caret so user could see the spaces
-                    ls = [self.lines[l].replace(SPACE_CHAR, 
+                    ls = [self.lines[l].replace(SPACE_CHAR,
                         SPACE_REPLACEMENT_CHAR) for l in lines]
                     print('Note: White space replaced with ^')
                     for l in ls:
@@ -1404,7 +1406,11 @@ if __name__ == '__main__':
         elif o in ("--file", "-f"):
             file = a
         elif o in ("--indent", "-i"):
-            indent = a
+            try:
+                indent = int(a)
+            except ValueError:
+                print('Indent must be able to convert to an integer')
+                sys.exit(1)
         elif o in ("--whitespace-check", "-w"):
             check_whitespace = True
         elif o in ("--print-headers", "-p"):
@@ -1420,13 +1426,6 @@ if __name__ == '__main__':
         sys.exit(1)
 
     stl = CStyleChecker(file, check_whitespace=check_whitespace,
-        print_headers=print_headers, strict=strict)
-    if indent is not None:
-        # Override the checker's indent amount
-        try:
-            stl.override_indent_amt(int(indent))
-        except ValueError:
-            print('Indent must be able to convert to an integer')
-            sys.exit(1)
+                        print_headers=print_headers, strict=strict, indent_amt=indent)
 
     stl.run()
