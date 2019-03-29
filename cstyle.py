@@ -1002,7 +1002,7 @@ class CStyleChecker(object):
                 self.print_lines([_ for _ in range(block.prev_rcurly[0],
                                                    block.start[0]+1)])
             else:
-                print('Line %d: %s block must start within one space of }'\
+                print('Line %d: %s block and } must be separated with a space'\
                       % (block.start[0]+1, block.keyword))
                 print(line)
                 print(self.generate_guide(line, [loc1[1], loc2[1]]))
