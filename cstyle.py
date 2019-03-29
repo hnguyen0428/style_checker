@@ -1248,6 +1248,9 @@ class CStyleChecker(object):
         if check_magic:
             self.check_magic(lines)
 
+        after = self.lines[block.end[0]][block.end[1]+1:]
+        term = self.lines[block.end[0]][block.end[1]]
+        self.handle_trailing_string(after, block.end[0], term)
         return lines[-1] + 1
 
     def handle_structure(self, block, indent_amt, check_magic):
