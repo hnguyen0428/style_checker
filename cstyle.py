@@ -2,7 +2,7 @@
     Filename: cstyle.py
     Author: Daniel Nguyen
     Date Created: March 23, 2019
-    Last Modified: March 27, 2019
+    Last Modified: March 29, 2019
     Python Version: 2.7
 '''
 
@@ -63,9 +63,9 @@ FUNC_KEYWORDS = [
 # Code detections regular expressions
 C_DIRS_REGEXP = " *\#(define|include|undef|ifdef|ifndef|if|else|elif|endif|error|pragma)"
 FUNC_REGEXP = (" *(%s|)" % "|".join(FUNC_KEYWORDS)) +\
-"([a-zA-Z_][a-zA-Z0-9_]*)(\** +| +\**| +\** +)([a-zA-Z_][a-zA-Z0-9_]*)( )*(\(.*\))"
+    "([a-zA-Z_][a-zA-Z0-9_]*)(\** +| +\**| +\** +)([a-zA-Z_][a-zA-Z0-9_]*)( )*(\(.*\))"
 FUNC_HDR_REGEXP = (" *(%s|)" % "|".join(FUNC_KEYWORDS)) +\
-"[a-zA-Z_][a-zA-Z0-9_]*(\** +| +\**| +\** +)[a-zA-Z_][a-zA-Z0-9_]*( )*\(.*\) *; *\Z"
+    "[a-zA-Z_][a-zA-Z0-9_]*(\** +| +\**| +\** +)[a-zA-Z_][a-zA-Z0-9_]*( )*\(.*\) *; *\Z"
 ASSIGNMENT_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *=.* *;"
 DEC_ASSIGNMENT_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *\** *[a-zA-Z_][a-zA-Z0-9_]* *=.* *;"
 FUNC_CALL_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *\(.*\) *;"
