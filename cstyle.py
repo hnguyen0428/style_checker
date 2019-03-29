@@ -38,6 +38,7 @@ NUMBER_REGEXP = "(-|)(0x|0|)[0-9]+"
 
 
 BLCK_COMMENT_REGEXP = " *(\/\*)"
+BLCK_CMMT_EMPTY_REGEXP = " *(\/\*.*\*\/) *\Z"    # Block comment followed by empty space
 COMMENT_REGEXP = " *\/\/.*"
 STMT_REGEXP = ".*;"
 WHITE_SPACE_REGEXP = "(|( |\t)+)\Z"
@@ -79,6 +80,7 @@ SWITCH_CASE_REGEXP = " *((case .+ *:)|(default *:))"
 
 
 blck_cmmt_ptrn = re.compile(BLCK_COMMENT_REGEXP)
+blck_cmmt_empty_ptrn = re.compile(BLCK_CMMT_EMPTY_REGEXP)
 cmmt_ptrn = re.compile(COMMENT_REGEXP)
 stmt_ptrn = re.compile(STMT_REGEXP)
 white_space_ptrn = re.compile(WHITE_SPACE_REGEXP)
@@ -907,7 +909,7 @@ class CStyleChecker(object):
                     print(self.lines[n])
             else:
                 # Check if the trailing string is a comment. If it is then it's fine
-                if not cmmt_ptrn.match(trail):
+                if not cmmt_ptrn.match(trail) and not blck_cmmt_empty_ptrn.match(trail):
                     print('Line %d: Statements behind %s should be '\
                         'on the next line' % (n+1, terminator))
                     print(self.lines[n])
