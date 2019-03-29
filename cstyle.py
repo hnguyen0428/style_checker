@@ -986,7 +986,7 @@ class CStyleChecker(object):
                 # that could be parsed later
                 if keyword:
                     return keyword
-                else:
+                elif block.get_type() != _STRUCTURE:
                     self.handle_trailing_string(after, curly_end[0], RIGHT_CURLY)
         return None
 
@@ -1209,6 +1209,10 @@ class CStyleChecker(object):
     def handle_uncond_strict(self, block, indent_amt):
         if block.uses_curly:
             self.handle_curly_brace_spacing(block)
+        elif block.keyword == "else":
+            print('Line %d: %s should use curly braces'
+                  % (block.start[0]+1, block.keyword))
+            print(self.lines[block.start[0]])
 
         if block.keyword == "else" and block.prev_rcurly is not None:
             self.handle_if_else_spacing(block)
