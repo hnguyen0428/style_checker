@@ -1380,7 +1380,7 @@ class CStyleChecker(object):
 
 def usage():
     print(
-        ("Usage: python %s [-h] -f <C filename> [-i <indent amount>] [-w]\n" % sys.argv[0]) +
+        ("Usage: python %s [-h] -f <C filename> [-i <indent amount>] [-w] [-p] [-s]\n" % sys.argv[0]) +
         "\t-h/--help: Show help message\n" +
         "\t-f/--file: Filename to style check (required argument)\n" +
         "\t-i/--indent: Indentation amount\n" +

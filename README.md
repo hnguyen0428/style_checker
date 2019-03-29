@@ -21,7 +21,7 @@ print them out for manual checking.
 
 ### Usage
 
-    - Usage: python cstyle.py [-h] -f <C filename> [-i <indent amount>] [-w]
+    - Usage: python cstyle.py [-h] -f <C filename> [-i <indent amount>] [-w] [-p] [-s]
                 -h/--help: Show help message
                 -f/--file: Filename to style check (required argument)
                 -i/--indent: Indentation amount
