@@ -40,13 +40,14 @@ NUMBER_REGEXP = "(-|)(0x|0|)[0-9]+"
 BLCK_COMMENT_REGEXP = " *(\/\*)"
 COMMENT_REGEXP = " *\/\/.*"
 STMT_REGEXP = ".*;"
-WHITE_SPACE_REGEXP = "( |\t)+\Z"
+WHITE_SPACE_REGEXP = "(|( |\t)+)\Z"
 MAGIC_NUMBER_REGEXP = "[^a-zA-Z0-9_]+(-|)((0x|0|)[0-9]+)"
 # The group index that is the number inside the magic number pattern
 NUM_GROUP_IND = 2
 
 STRING_REGEXP = "(\".*\")"
 CHAR_REGEXP = "(\'.*\')"
+SEP_BY_SPACE_REGEXP = "\A. .\Z"
 
 # Covers most cases of return types for functions
 FUNC_KEYWORDS = [
@@ -96,6 +97,7 @@ dec_ptrn = re.compile(DECLARATIONS_REGEXP)
 keywords_ptrn = re.compile(KEYWORDS_REGEXP)
 
 todo_cmmt_ptrn = re.compile(TODO_COMMENT_REGEXP)
+sep_space_ptrn = re.compile(SEP_BY_SPACE_REGEXP)
 
 code_regexp = [c_dirs_ptrn, func_ptrn, func_hdr_ptrn, asg_ptrn,
 dec_asg_ptrn, func_call_ptrn, dec_ptrn, keywords_ptrn]
@@ -177,14 +179,18 @@ class CodeBlock(object):
         self.start_params = None
         self.end_params = None
 
+        # For switch case
+        self.colon_loc = None
+
     def get_type(self):
         return self._type
 
-
 class CStyleChecker(object):
-    def __init__(self, filename, check_whitespace=True, print_headers=False):
+    def __init__(self, filename, check_whitespace=True,
+                 print_headers=False, strict=False):
         self.check_ws = check_whitespace
         self.print_headers = print_headers
+        self.strict = strict
         self.og_lines = []
         self.lines = []
         self.indent_amt = TAB_LENGTH
@@ -215,7 +221,7 @@ class CStyleChecker(object):
             block = self.parse_line(i)
             t = block.get_type()
             if t == _FUNC:
-                term_line, term_ind = self.find_statement_terminator(block.lines[0], 0)
+                term_line, term_ind = block.term_loc[0], block.term_loc[1]
                 # Use the first non empty line as the basis for indent amount
                 j = term_line + 1
                 while j < len(self.lines) and len(self.lines[j].lstrip()) == 0:
@@ -237,7 +243,7 @@ class CStyleChecker(object):
             if keyword == "switch":
                 # Find a case
                 term_line, term_ind = self.find_statement_terminator(i, switch_ind, 
-                    term=COLON)
+                                        term=COLON)
                 j = term_line + 1
                 while j < len(self.lines):
                     keyword, case_ind = self.match_keywords(self.lines[j], j)
@@ -267,7 +273,10 @@ class CStyleChecker(object):
                 elif line[j:j+2] == END_BLOCK_COMMENT:
                     end = (i, j+2)
                     self.block_cmmts.append((start, end))
-                    
+
+    def get_indent_amt(self, n):
+        stripped = self.lines[n].lstrip()
+        return len(self.lines[n]) - len(stripped)
 
     def is_code(self, s):
         for ptrn in code_regexp:
@@ -402,34 +411,42 @@ class CStyleChecker(object):
 
         return False
 
+    # Given two locations, figure out if they are only separated by a space
+    def within_one_space(self, loc1, loc2):
+        if loc1[0] != loc2[0]:
+            return False
+
+        if loc1[1] < loc2[1]:
+            return sep_space_ptrn.match(self.lines[loc1[0]][loc1[1]:loc2[1]+1])
+        else:
+            return sep_space_ptrn.match(self.lines[loc1[0]][loc2[1]:loc1[1]+1])
+
     def match_keywords(self, line, n):
-        for s in CONDITIONALS + UNCONDITIONALS + SWITCH_CASE + OTHERS:
-            if len(line) <= len(s):
-                if line.startswith(s):
-                    return s, 0
-            else:
-                # Find the substring inside line
-                index = line.find(s)
-                if index != -1:
-                    # Look to the left and right to see if it is part of a variable
-                    # name
-                    left = True
-                    right = True
-                    if index != 0:
-                        left = line[index-1] not in VARS_ALLOWED_CHARS
-                    if index + len(s) < len(line):
-                        right = line[index+len(s)] not in VARS_ALLOWED_CHARS
-                    
-                    if left and right:
-                        # Check if it's part of a comment
-                        if self.valid_string(line, n, index, index+len(s)):
-                            return s, index
+        for j in range(len(line)):
+            for keyword in CONDITIONALS + UNCONDITIONALS + SWITCH_CASE + OTHERS:
+                if len(line) <= len(keyword):
+                    if line.startswith(keyword):
+                        return keyword, 0
+                else:
+                    if line[j:j+len(keyword)] == keyword:
+                        # Look to the left and right to see if it is part of a variable
+                        # name
+                        left = True
+                        right = True
+                        if j != 0:
+                            left = line[j-1] not in VARS_ALLOWED_CHARS
+                        if j + len(keyword) < len(line):
+                            right = line[j+len(keyword)] not in VARS_ALLOWED_CHARS
+
+                        if left and right:
+                            # Check if it's part of a comment
+                            if self.valid_string(line, n, j, j+len(keyword)):
+                                return keyword, j
 
         return None, -1
 
     # Look for matching pair of {} () etc...
     # l1 j1 l2 j2 indicate start and end locations
-    # init is the start count of match
     def match_terms(self, l1, j1, l2, j2, term):
         assert term in matchers
         match = matchers[term]
@@ -445,16 +462,15 @@ class CStyleChecker(object):
                 if line[j:j+len(term)] == term and\
                         self.valid_string(line, line_n, j, j+len(term)):
                     start += 1
-                    if prev is not None:
+                    if prev is None:
                         prev = (line_n, j)
-                elif line[j:j+len(term)] == match and\
-                        self.valid_string(line, line_n, j, j+len(term)):
+                elif line[j:j+len(match)] == match and\
+                        self.valid_string(line, line_n, j, j+len(match)):
                     start -= 1
                     if start == 0:
                         return prev, (line_n, j)
 
         return None, None
-
 
     # Look for either the ; or {.
     # If include_keywords, will also look for the keywords on the following lines
@@ -494,45 +510,21 @@ class CStyleChecker(object):
     # Look for the beginning ( and end ) of a condition
     # Return two tuples, of location of ( and location of )
     def find_condition(self, n, start):
-        num_paren = 0
-        start_paren_loc = None
-        for line_n in range(n, len(self.lines)):
-            line = self.lines[line_n]
-            lo = start if line_n == n else 0
-            for j in range(lo, len(self.lines[line_n])):
-                if self.lines[line_n][j] == LEFT_PAREN and\
-                        self.valid_string(line, line_n, j, j+1):
-                    num_paren += 1
-                    if start_paren_loc is None:
-                        start_paren_loc = (line_n, j)
-                elif self.lines[line_n][j] == RIGHT_PAREN and\
-                        self.valid_string(line, line_n, j, j+1):
-                    num_paren -= 1
-                    if num_paren == 0:
-                        return start_paren_loc, (line_n, j)
+        return self.match_terms(n, start,
+                                len(self.lines)-1, len(self.lines[-1]),
+                                LEFT_PAREN)
 
     # Find all lines of code within curly braces
     # Argument n, start specifies the first curly brace
     def find_code_block(self, n, start):
         assert self.lines[n][start] == LEFT_CURLY
+        return self.match_terms(n, start,
+                                len(self.lines)-1, len(self.lines[-1]),
+                                LEFT_CURLY)
 
-        num_brace = 0
-        for line_n in range(n, len(self.lines)):
-            lo = start if line_n == n else 0
-            line = self.lines[line_n]
-            for j in range(lo, len(self.lines[line_n])):
-                if self.lines[line_n][j] == LEFT_CURLY:
-                    # Make sure that this curly is not part of a string or a comment
-                    lo, hi = j, j+1
-                    if self.valid_string(line, line_n, lo, hi):
-                        num_brace += 1
-                elif self.lines[line_n][j] == RIGHT_CURLY:
-                    # Make sure that this curly is not part of a string or a comment
-                    lo, hi = j, j+1
-                    if self.valid_string(line, line_n, lo, hi):
-                        num_brace -= 1
-                        if num_brace == 0:
-                            return (n, start), (line_n, j)
+    # Generate a string parallel to the passed in string with ^ at passed in indices
+    def generate_guide(self, s, indices):
+        return "".join(['^' if i in indices else ' ' for i in range(len(s))])
 
     # Check what kind of statement starting from this line
     # Return group of lines that belong to that statement and the type
@@ -692,6 +684,7 @@ class CStyleChecker(object):
                 # Look for colon
                 term_line, term_ind = self.find_statement_terminator(n, index, term=COLON)
                 block.term_loc = (term_line, term_ind)
+                block.colon_loc = block.term_loc
 
                 # Look for curly brace if the case uses curly brace. This includes
                 # keywords so we will know if we run into another block that uses curly
@@ -926,7 +919,6 @@ class CStyleChecker(object):
                 self.check_indentation([n], indent_amt)
             else:
                 print('Line %d: %s should be on the next line' % (n+1, terminator))
-                self.check_indentation([n], indent_amt+self.indent_amt)
 
     # Handle style checking around the terminator { or ;
     # If {, then it will check the curly brace indentation. Returns None
@@ -951,7 +943,7 @@ class CStyleChecker(object):
                 # Case 2: { on the same line as condition.
                 check_lines = [_ for _ in range(lines[0], term_line+1)]
                 self.check_indentation(check_lines, indent_amt)
-            
+
             after = self.lines[term_line][term_ind+1:]
             self.handle_trailing_string(after, term_line, LEFT_CURLY)
             return None
@@ -972,6 +964,71 @@ class CStyleChecker(object):
             #     statement;
             block = self.parse_line(term_line)
             return self.handle_block(block, indent_amt+self.indent_amt)
+
+    def handle_end_block(self, block, indent_amt):
+        curly_start, curly_end = block.block_loc[0], block.block_loc[1]
+        last_line = self.lines[curly_end[0]]
+        before = last_line[:curly_end[1]]
+        # First check the part before the } for code
+        self.handle_leading_string(before, curly_end[0], RIGHT_CURLY, indent_amt)
+
+        # Skip trailing check for do while since while is behind the curly
+        if block.keyword == "do":
+            return None
+
+        # Check the part behind } for keywords
+        after = last_line[curly_end[1]+1:]
+        if len(after) != 0:
+            # If the after part is not a comment
+            if not cmmt_ptrn.match(after) and not blck_cmmt_ptrn.match(after):
+                keyword, index = self.match_keywords(after, curly_end[0])
+                # If there is a keyword, return this line so that
+                # that could be parsed later
+                if keyword:
+                    return keyword
+                else:
+                    self.handle_trailing_string(after, curly_end[0], RIGHT_CURLY)
+        return None
+
+    def handle_if_else_spacing(self, block):
+        loc1 = block.prev_rcurly
+        loc2 = (block.start[0], block.start[1])
+        if not self.within_one_space(loc1, loc2):
+            line = self.lines[block.start[0]]
+            if loc1[0] != loc2[0]:
+                print('Line %d to %d: %s block must start on the same line as the '
+                      'curly brace of the previous if/else if block'\
+                      % (loc1[0]+1, loc2[0]+1, block.keyword))
+                self.print_lines([_ for _ in range(block.prev_rcurly[0],
+                                                   block.start[0]+1)])
+            else:
+                print('Line %d: %s block must start within one space of }'\
+                      % (block.start[0]+1, block.keyword))
+                print(line)
+                print(self.generate_guide(line, [loc1[1], loc2[1]]))
+
+    def handle_curly_brace_spacing(self, block):
+        if block.get_type() == _CONDITIONAL:
+            loc1 = block.end_cond
+        elif block.get_type() == _SWITCH_CASE:
+            loc1 = block.colon_loc
+        else:
+            end = block.start[1] + len(block.keyword) - 1
+            loc1 = (block.start[0], end)
+
+        loc2 = block.block_loc[0]
+        if not self.within_one_space(loc1, loc2):
+            line = self.lines[loc1[0]]
+            if loc1[0] != loc2[0]:
+                print('Line %d to %d: { must be on the same line after the '
+                      'end of %s condition'
+                      % (loc1[0]+1, loc2[0]+1, block.keyword))
+                self.print_lines([_ for _ in range(loc1[0], loc2[0]+1)])
+            else:
+                print('Line %d: ) and { must be separated with a space'
+                      % (loc1[0]+1))
+                print(line)
+                print(self.generate_guide(line, [loc1[1], loc2[1]]))
 
     def handle_block_comment(self, block, indent_amt):
         lines = block.lines
@@ -1041,29 +1098,22 @@ class CStyleChecker(object):
         switch_indent = indent_amt
         indent_amt = indent_amt + self.case_indent
 
-        # Look for colon
-        term_line, term_ind = self.find_statement_terminator(lines[0], 0, 
-            term=COLON)
+        if block.uses_curly and self.strict:
+            self.handle_curly_brace_spacing(block)
 
+        # Look for colon
+        term_line, term_ind = block.term_loc[0], block.term_loc[1]
         self.check_magic([_ for _ in range(lines[0], term_line+1)])
-        term_line2, term_ind2 = self.find_statement_terminator(term_line, 
-                    term_ind+1, term=[LEFT_CURLY, SEMICOLON], include_keywords=True)
-        # Case uses curly braces
-        uses_curly = False
-        if self.lines[term_line2][term_ind2] == LEFT_CURLY:
-            uses_curly = True
-            term_line = term_line2
-            term_ind = term_ind2
 
         # Check behind colon or curly brace for anything
         line = self.lines[term_line]
         after = line[term_ind+1:]
-        self.handle_trailing_string(after, term_line, LEFT_CURLY if uses_curly else COLON)
+        self.handle_trailing_string(after, term_line, line[term_ind])
 
         # Parse the statements for this case
         i = term_line + 1
         # If uses curly, we only go up to the second to last line
-        k = lines[-1]-1 if uses_curly else lines[-1]
+        k = lines[-1]-1 if block.uses_curly else lines[-1]
         while i < len(self.lines) and i <= k:
             n_block = self.parse_line(i)
             if n_block.get_type() == _CMMT:
@@ -1071,129 +1121,101 @@ class CStyleChecker(object):
             else:
                 i = self.handle_block(n_block, indent_amt+self.indent_amt, in_switch=True)
 
-        if uses_curly:
-            curly_start, curly_end = self.find_code_block(term_line, term_ind)
-            last_line = self.lines[curly_end[0]]
-            before = last_line[:curly_end[1]]
-            self.handle_leading_string(before, curly_end[0], RIGHT_CURLY, indent_amt)
-            after = last_line[curly_end[1]+1:]
+        keyword = None
+        if block.uses_curly:
+            keyword = self.handle_end_block(block, indent_amt)
+            if keyword:
+                print('Line %d: Next case statement should be on the next line'\
+                            % (lines[-1]+1))
+                print(self.lines[lines[-1]])
 
-            if len(after) != 0:
-                # If the after part is not a comment
-                if not cmmt_ptrn.match(after) and not blck_cmmt_ptrn.match(after):
-                    keyword, index = self.match_keywords(after, curly_end[0])
-                    # If there is a keyword, return this line so that
-                    # that could be parsed later
-                    if keyword:
-                        print('Line %d: Next case statement should be on the next line'\
-                            % (curly_end[0]+1))
-                        print(self.lines[curly_end[0]])
-                        return lines[-1]
-                else:
-                    self.handle_trailing_string(after, curly_end[0], RIGHT_CURLY)
-
-        return lines[-1] + 1
+        return lines[-1] if keyword else lines[-1] + 1
 
     # Anything with conditions (while, for, if, else if, switch)
     # indent_amt passed in is the indent amount of the code within
     # the condition statements, not the first line itself
     def handle_cond(self, block, indent_amt):
         lines = block.lines
-        first_line = self.lines[lines[0]]
-        # print(first_line)
-        keyword, index = self.match_keywords(first_line, lines[0])
-        is_switch = keyword == "switch"
+        is_switch = block.keyword == "switch"
 
-        # Parse the condition first
-        paren_start, paren_end = self.find_condition(lines[0], index)
-        self.check_magic([_ for _ in range(lines[0], paren_end[0]+1)])
+        # Check if condition contains magic number
+        self.check_magic([_ for _ in range(lines[0], block.end_cond[0]+1)])
 
-        term_line, term_ind = self.find_statement_terminator(
-            paren_end[0], paren_end[1], include_keywords=True
-        )
-        ret = self.handle_terminator(lines, term_line, term_ind, indent_amt)
+        if self.strict:
+            self.handle_cond_strict(block, indent_amt)
+
+        ret = self.handle_terminator(lines, block.term_loc[0],
+                                     block.term_loc[1], indent_amt)
         if ret:
             return ret
 
-        # for, while, if, else if
-        # Note: i is the global line index.
-        # This loops checks all the way up to the last line not including the last line
-        i = term_line + 1
+        i = block.term_loc[0] + 1
         while i < len(self.lines) and i < lines[-1]:
             n_block = self.parse_line(i)
-            if is_switch:
-                i = self.handle_block(n_block, indent_amt, in_switch=True)
-            else:
-                i = self.handle_block(n_block, indent_amt+self.indent_amt)
+            n_indent_amt = indent_amt if is_switch else indent_amt+self.indent_amt
+            i = self.handle_block(n_block, n_indent_amt, in_switch=is_switch)
 
-        # Check the last line for indentation error and if it has keywords.
-        # For example:
-        # if (condition) {
-        # } else {}
-        curly_start, curly_end = self.find_code_block(term_line, term_ind)
-        last_line = self.lines[curly_end[0]]
-        before = last_line[:curly_end[1]]
-        # First check the part before the } for code
-        self.handle_leading_string(before, curly_end[0], RIGHT_CURLY, indent_amt)
+        keyword = self.handle_end_block(block, indent_amt)
+        return lines[-1] if keyword else lines[-1] + 1
 
-        # Check the part behind } for keywords
-        after = last_line[curly_end[1]+1:]
-        if len(after) != 0:
-            # If the after part is not a comment
-            if not cmmt_ptrn.match(after) and not blck_cmmt_ptrn.match(after):
-                keyword, index = self.match_keywords(after, curly_end[0])
-                # If there is a keyword, return this line so that
-                # that could be parsed later
-                if keyword:
-                    return lines[-1]
-                else:
-                    self.handle_trailing_string(after, curly_end[0], RIGHT_CURLY)
-        
-        return lines[-1] + 1
+    def handle_cond_strict(self, block, indent_amt):
+        # 1: Condition must start 1 space in from the keyword
+        loc1 = (block.start[0], block.start[1]+len(block.keyword)-1)
+        loc2 = block.start_cond
+        if not self.within_one_space(loc1, loc2):
+            line = self.lines[loc1[0]]
+            print('Line %d: %s and (condition) must be separated with a space'
+                  % (block.start_cond[0]+1, block.keyword))
+            print(line)
+            print(self.generate_guide(line, [loc1[1], loc2[1]]))
+
+        if block.uses_curly:
+            self.handle_curly_brace_spacing(block)
+        else:
+            # 2: Should use curly braces for if/else/etc...
+            print('Line %d: %s should use curly braces'
+                  % (block.start[0]+1, block.keyword))
+            print(self.lines[block.start[0]])
+
+        # 3: Check for else if that the right curly brace of the previous
+        #    if/else if is on the same line and within one space
+        if block.keyword == "else if" and block.prev_rcurly is not None:
+            self.handle_if_else_spacing(block)
 
     def handle_uncond(self, block, indent_amt):
         lines = block.lines
-        start = block.start[1] + len(block.keyword)
-        term_line, term_ind = self.find_statement_terminator(lines[0], start, include_keywords=True)
-        ret = self.handle_terminator(lines, term_line, term_ind, indent_amt)
-        if ret: # Will only be true if terminator != {
+
+        if self.strict:
+            self.handle_uncond_strict(block, indent_amt)
+
+        ret = self.handle_terminator(lines, block.term_loc[0],
+                                     block.term_loc[1], indent_amt)
+        if ret:     # Will only be true if terminator != {
             return ret
 
-        i = term_line + 1
+        i = block.term_loc[0] + 1
         while i < len(self.lines) and i < lines[-1]:
             n_block = self.parse_line(i)
             i = self.handle_block(n_block, indent_amt+self.indent_amt)
 
-        # Handle the closing curly brace
-        curly_start, curly_end = self.find_code_block(term_line, term_ind)
-        last_line = self.lines[curly_end[0]]
-        before = last_line[:curly_end[1]]
-        # First check the part before the } for code
-        self.handle_leading_string(before, curly_end[0], RIGHT_CURLY, indent_amt)
-
-        keyword, index = self.match_keywords(self.lines[lines[0]], lines[0])
-        after = last_line[curly_end[1]+1:]
-        # Skip the trailing check if it's a do while loop because the while
-        # is behind the }
-        if keyword != "do":
-            if not cmmt_ptrn.match(after) and not blck_cmmt_ptrn.match(after):
-                keyword, index = self.match_keywords(after, curly_end[0])
-                if keyword is not None:
-                    # If there is a keyword, return this line so that
-                    # that could be parsed later
-                    return lines[-1]
-                else:
-                    self.handle_trailing_string(after, curly_end[0], RIGHT_CURLY)
-        else:
+        keyword = self.handle_end_block(block, indent_amt)
+        if keyword == "do":
             # If it is do while, check the while condition for magic
             # number
-            self.check_magic([curly_end[0]])
+            self.check_magic([block.do_while_loc[0]])
 
-        return lines[-1] + 1
+        return lines[-1] if keyword else lines[-1] + 1
+
+    def handle_uncond_strict(self, block, indent_amt):
+        if block.uses_curly:
+            self.handle_curly_brace_spacing(block)
+
+        if block.keyword == "else" and block.prev_rcurly is not None:
+            self.handle_if_else_spacing(block)
 
     def handle_func(self, block, indent_amt):
         lines = block.lines
-        term_line, term_ind = self.find_statement_terminator(lines[0], 0, term=LEFT_CURLY)
+        term_line, term_ind = block.term_loc[0], block.term_loc[1]
         self.check_magic([_ for _ in range(lines[0], term_line+1)])
 
         line = self.lines[term_line]
@@ -1230,6 +1252,8 @@ class CStyleChecker(object):
 
         # If there is only 1 line, we're done checking
         if len(lines) == 1:
+            if check_magic:
+                self.check_magic(lines)
             return lines[-1] + 1
 
         term_line, term_ind = self.find_statement_terminator(lines[0], 0)
@@ -1241,15 +1265,10 @@ class CStyleChecker(object):
         while i < len(self.lines) and i < lines[-1]:
             n_block = self.parse_line(i)
             i = self.handle_block(n_block, indent_amt+self.indent_amt,
-                check_magic=check_magic)
+                                  check_magic=check_magic)
 
-        curly_start, curly_end = self.find_code_block(term_line, term_ind)
-        last_line = self.lines[curly_end[0]]
-        before = last_line[:curly_end[1]]
-        # Check the part before the } for code
-        self.handle_leading_string(before, curly_end[0], RIGHT_CURLY, indent_amt)
+        self.handle_end_block(block, indent_amt)
         return lines[-1] + 1
-
 
     def handle_whitespace(self, block):
         lines = block.lines
@@ -1363,12 +1382,13 @@ def usage():
     )
 
 if __name__ == '__main__':
-    opts, args = getopt.getopt(sys.argv[1:], "hf:i:wp", ["help", "file=", 
-        "indent=", "whitespace-check", "print-headers"])
+    opts, args = getopt.getopt(sys.argv[1:], "hf:i:wps", ["help", "file=",
+        "indent=", "whitespace-check", "print-headers", "strict-check"])
     file = None
     indent = None
     check_whitespace = False
     print_headers = False
+    strict = False
     for o, a in opts:
         if o in ("--help", "-h"):
             usage()
@@ -1381,6 +1401,8 @@ if __name__ == '__main__':
             check_whitespace = True
         elif o in ("--print-headers", "-p"):
             print_headers = True
+        elif o in ("--strict-check", "-s"):
+            strict = True
         else:
             usage()
             sys.exit(1)
@@ -1390,7 +1412,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     stl = CStyleChecker(file, check_whitespace=check_whitespace,
-        print_headers=print_headers)
+        print_headers=print_headers, strict=strict)
     if indent is not None:
         # Override the checker's indent amount
         try:

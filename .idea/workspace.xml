@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="fa4725aa-7b78-4f76-b44c-c06f4cfb29fb" name="Default" comment="">
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/cstyle.py" afterPath="$PROJECT_DIR$/cstyle.py" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -16,8 +17,8 @@
       <file leaf-file-name="cstyle.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/cstyle.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="416">
-              <caret line="956" column="0" lean-forward="false" selection-start-line="956" selection-start-column="0" selection-end-line="956" selection-end-column="0" />
+            <state relative-caret-position="563">
+              <caret line="1407" column="18" lean-forward="false" selection-start-line="1407" selection-start-column="18" selection-end-line="1407" selection-end-column="18" />
               <folding />
             </state>
           </provider>
@@ -278,8 +279,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/cstyle.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="416">
-          <caret line="956" column="0" lean-forward="false" selection-start-line="956" selection-start-column="0" selection-end-line="956" selection-end-column="0" />
+        <state relative-caret-position="563">
+          <caret line="1407" column="18" lean-forward="false" selection-start-line="1407" selection-start-column="18" selection-end-line="1407" selection-end-column="18" />
           <folding />
         </state>
       </provider>
