@@ -13,6 +13,7 @@ import getopt
 COLON = ':'
 START_BLOCK_COMMENT = '/*'
 END_BLOCK_COMMENT = '*/'
+ASTERISK = '*'
 START_COMMENT_SLASH = '//'
 BACKSLASH = '\\'
 TAB_CHAR = '\t'
@@ -21,6 +22,8 @@ DOUBLE_QUOTE = '\"'
 SINGLE_QUOTE = '\''
 START_COMMENT_CHARS = ['@', '#']
 
+
+BLCK_CMMT_EMPTY_REGEXP = " *(\/\*.*\*\/) *\Z"    # Block comment followed by empty space
 LABEL_REGEXP = " *[a-zA-Z_\.][a-zA-Z0-9_\.]*\:"
 DIRECTIVES = " *\.[a-zA-Z0-9_\.]+"
 BLCK_COMMENT_REGEXP = " *(\/\*)"
@@ -33,6 +36,7 @@ WHITE_SPACE_REGEXP = "( |\t)+\Z"
 TODO_COMMENT_REGEXP = " *(//|@|#) *TODO"
 
 
+blck_cmmt_empty_ptrn = re.compile(BLCK_CMMT_EMPTY_REGEXP)
 label_ptrn = re.compile(LABEL_REGEXP)
 dir_ptrn = re.compile(DIRECTIVES)
 blck_cmmt_ptrn = re.compile(BLCK_COMMENT_REGEXP)
@@ -186,7 +190,7 @@ class SStyleChecker(object):
             # If line is within range
             if n >= start_line and n <= end_line:
                 if n == start_line and start_line == end_line:
-                    if lo >= start_ind and lo <= end_ind:
+                    if lo >= start_ind and hi < end_ind:
                         return True
                 elif n == start_line:
                     if lo >= start_ind:
@@ -207,18 +211,15 @@ class SStyleChecker(object):
                 print(self.lines[line_n])
 
     def get_block_comments(self):
-        in_block = False
         start = None
 
         for i in range(len(self.lines)):
             line = self.lines[i]
             for j in range(len(line)-1):
                 if line[j:j+2] == START_BLOCK_COMMENT and not self.within_quotes(line, j, j+2)\
-                    and not self.within_comment(line, i, j, j+2):
-                    in_block = True
+                        and not self.within_comment(line, i, j, j+2):
                     start = (i, j)
                 elif line[j:j+2] == END_BLOCK_COMMENT:
-                    in_block = False
                     end = (i, j+2)
                     self.block_cmmts.append((start, end))
 
@@ -280,7 +281,7 @@ class SStyleChecker(object):
             actual_indent_amt = len(line) - len(stripped)
             if actual_indent_amt == 0:
                 print('Line %d: Assembly instruction or directive should be '\
-                    'indented with 1 tab' % (n+1))
+                      'indented with 1 tab' % (n+1))
                 print(line)
             elif actual_indent_amt != self.indent_amt:
                 print('Line %d: Inconsistent Indentation' % (n+1))
@@ -295,11 +296,13 @@ class SStyleChecker(object):
                 self.used_space_lines.append(n)
 
     def handle_trailing_string(self, trail, n, terminator):
+        stripped = trail.lstrip()
         if len(trail) != 0:
             # Check if the trailing string is a comment. If it is then it's fine
-            if not cmmt_ptrn.match(trail) and len(trail.lstrip()) != 0:
+            if len(stripped) != 0 and not cmmt_ptrn.match(trail) and not\
+                    blck_cmmt_empty_ptrn.match(trail):
                 print('Line %d: Statements behind %s should be '\
-                    'on the next line' % (n+1, terminator))
+                      'on the next line' % (n+1, terminator))
                 print(self.lines[n])
 
     def handle_group(self, group, t):
@@ -319,6 +322,40 @@ class SStyleChecker(object):
         return None
 
     def handle_block_comment(self, lines):
+        indent_error = False
+        indent_amt = 0
+        for line_n in lines:
+            # Replace tabs with spaces
+            line = self.lines[line_n]
+            stripped_line = line.lstrip()
+
+            # Ignore if the line is empty
+            if len(stripped_line) == 0:
+                continue
+
+            actual_indent_amt = len(line) - len(stripped_line)
+            if line_n == lines[0]:
+                # The first line determines the indent amount. It has to be either
+                # 0 or TAB_LENGTH
+                if actual_indent_amt != 0 and actual_indent_amt != TAB_LENGTH:
+                    indent_error = True
+                else:
+                    indent_amt = actual_indent_amt
+            else:
+                # For any other line, the * should line up, so indent
+                # amount should be == indent_amt + 1
+                # Only check this if they start the comment block with *
+                if stripped_line[0] == ASTERISK:
+                    if actual_indent_amt != indent_amt + 1:
+                        indent_error = True
+
+        if indent_error:
+            if len(lines) > 1:
+                print('Line %d to %d: Inconsistent Indentation' % (lines[0]+1, lines[-1]+1))
+            else:
+                print('Line %d: Inconsistent Indentation' % (lines[0]+1))
+            self.print_lines(lines)
+
         last_line = self.lines[lines[-1]]
         index = last_line.find(END_BLOCK_COMMENT)
         if index != -1:
@@ -356,9 +393,9 @@ class SStyleChecker(object):
         after = self.lines[lines[0]][index+1:]
         if len(after) != 0:
             if not white_space_ptrn.match(after) and not\
-                cmmt_ptrn.match(after) and not blck_cmmt_ptrn.match(after):
+                    cmmt_ptrn.match(after) and not blck_cmmt_ptrn.match(after):
                 print('Line %d: Statements behind label should be on'\
-                    ' the next line' % (lines[0]+1))
+                      ' the next line' % (lines[0]+1))
                 print(self.lines[lines[0]])
 
         return lines[-1] + 1
@@ -367,7 +404,7 @@ class SStyleChecker(object):
         if len(lines) > NEWLINES_LIMIT:
             beg, end = lines[0]+1, lines[-1]+1
             print('Line %d to %d: Excess newlines. More than the newline limit (%d)'\
-                % (beg, end, NEWLINES_LIMIT))
+                  % (beg, end, NEWLINES_LIMIT))
 
         return lines[-1] + 1
 

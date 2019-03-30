@@ -949,7 +949,7 @@ class CStyleChecker(object):
                 # Check if the trailing string is a comment. If it is then it's fine
                 if not cmmt_ptrn.match(trail) and not blck_cmmt_empty_ptrn.match(trail):
                     print('Line %d: Statements behind %s should be '\
-                        'on the next line' % (n+1, terminator))
+                          'on the next line' % (n+1, terminator))
                     print(self.lines[n])
                 else:
                     # Check if the comment is a todo comment or commented out code
