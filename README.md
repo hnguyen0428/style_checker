@@ -59,6 +59,9 @@ if/else if block. For example:
 In strict mode, number of spaces used for indenting is enforced to be 2
 spaces.
 
+For inline comments, the comment should always start with // followed by
+a space.
+
 For more information, refer to the Google Style Guide.
     
 ## sstyle.py
