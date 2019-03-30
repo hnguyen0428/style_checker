@@ -2,7 +2,7 @@
 ## cstyle.py
 A style checker/linter for C files.
 
-What it can check:
+### What it can check:
 
 - Excess white space
 - Lines over 80 characters
@@ -32,7 +32,7 @@ print them out for manual checking.
 ## sstyle.py
 A style checker/linter for ARM assembly files.
 
-What it can check:
+### What it can check:
 
 - Lines over 80 characters
 - General indentation
