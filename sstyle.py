@@ -339,6 +339,7 @@ class SStyleChecker(object):
                 # 0 or TAB_LENGTH
                 if actual_indent_amt != 0 and actual_indent_amt != TAB_LENGTH:
                     indent_error = True
+                    indent_amt = actual_indent_amt
                 else:
                     indent_amt = actual_indent_amt
             else:
@@ -348,6 +349,12 @@ class SStyleChecker(object):
                 if stripped_line[0] == ASTERISK:
                     if actual_indent_amt != indent_amt + 1:
                         indent_error = True
+
+            # If the comment block is indented, it must use tabs
+            if indent_amt != 0:
+                og_line = self.og_lines[line_n]
+                if og_line[0] != TAB_CHAR:
+                    self.used_space_lines.append(line_n)
 
         if indent_error:
             if len(lines) > 1:
