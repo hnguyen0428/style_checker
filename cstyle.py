@@ -361,16 +361,23 @@ class CStyleChecker(object):
         return False
 
     # Check if the comment contains TODO or code in it
+    # Also check if comment has a space between text and //
     def check_comment(self, s, n):
         strip = s.lstrip()
         strip = strip.lstrip(FORWARD_SLASH)
         if self.is_code(strip):
             print('Line %d: Commented out code' % (n+1))
             print(self.lines[n])
+        else:
+            if todo_cmmt_ptrn.match(s):
+                print('Line %d: Left in TODO comment' % (n+1))
+                print(self.lines[n])
+            elif self.strict and len(strip) != 0 and\
+                    not white_space_ptrn.match(strip[0]):
+                print('Line %d: Comments should start with // followed '
+                      'by a space' % (n+1))
+                print(self.lines[n])
 
-        if todo_cmmt_ptrn.match(s):
-            print('Line %d: Left in TODO comment' % (n+1))
-            print(self.lines[n])
 
     def within_quotes(self, s, lo, hi):
         # Capture ranges that are within a string
