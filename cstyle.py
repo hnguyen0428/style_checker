@@ -130,6 +130,7 @@ OTHERS = ["break"]
 
 LINE_LIMIT = 80
 TAB_LENGTH = 2
+INDENT_AMOUNT = 2
 NEWLINES_LIMIT = 2
 NON_MAGIC_NUMBERS = [
     '0', '-1', '1', '\"\\n\"', '\'\\n\'', '\'\\0\'',
@@ -203,7 +204,9 @@ class CStyleChecker(object):
         self.strict = strict
         self.og_lines = []
         self.lines = []
-        self.indent_amt = TAB_LENGTH if indent_amt is None else indent_amt
+        if strict:
+            indent_amt = INDENT_AMOUNT
+        self.indent_amt = INDENT_AMOUNT if indent_amt is None else indent_amt
         self.block_cmmts = []
 
         try:

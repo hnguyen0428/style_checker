@@ -14,10 +14,6 @@ A style checker/linter for C files.
 - Will not automatically check for file/function headers but can
 print them out for manual checking.
 - Spacings for if/else/etc...
-  - For example, there should be space between if and condition in if (condition)
-  - Curly brace on the same line. e.g.: if (condition) {
-  - Checks if if/else has curly braces even for one liner
-  - And some more...
 
 ### Usage
 
@@ -28,6 +24,42 @@ print them out for manual checking.
                 -w/--whitespace-check: Use excess white space check
                 -p/--print-headers: If passed, program will print the file/function headers
                 -s/--strict-check: If passed, programm will check style in strict mode
+                
+### Whitespace Check
+With this enabled, the program will check if there are any white spaces
+on lines that are empty or when a statement finishes and there are extra
+spaces at the end.
+
+### Strict Mode
+With this enabled, the program will do spacing checks. For instance:
+
+    if (condition) {
+      // Do something
+    }
+    
+There must be a space between "if" and the condition. There must also be a
+space between the condition and the left curly brace.
+Note that the curly brace is required to be on the same line as the end of
+the condition. 
+
+These rules go for other constructs that have conditions.
+
+For if/else if/else/for/while, it is required that there is an accompanying
+curly brace even if they only contain one line.
+
+For else if/else, the blocks must start on the same line as the previous
+if/else if block. For example:
+
+    if (condition) {
+      // If
+    } else {  // Note that else is on this line
+      // Else
+    }
+
+In strict mode, number of spaces used for indenting is enforced to be 2
+spaces.
+
+For more information, refer to the Google Style Guide.
     
 ## sstyle.py
 A style checker/linter for ARM assembly files.
