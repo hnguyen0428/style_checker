@@ -1388,6 +1388,8 @@ class CStyleChecker(object):
         print('')
         self.check_line_limit()
 
+        file_header = []
+        found_header = False   # Flag for checking if there is a file header
         # Collect function headers
         func_headers = []
 
@@ -1417,13 +1419,20 @@ class CStyleChecker(object):
                 # of seeing a block comment
                 prev_type = None
 
+            if not found_header and t == _BLOCK_CMMT:
+                file_header.extend(block.lines)
+                found_header = True
+            elif not found_header and t != _EMPTY_LINE:
+                found_header = True
+
         if self.print_headers:
             # Print the file header first, which is the first block of comment
             if len(self.block_cmmts) != 0:
-                (start, end) = self.block_cmmts[0]
-                print('\nFile header:')
-                lines = [_ for _ in range(start[0], end[0]+1)]
-                self.print_lines(lines, print_n=True)
+                if len(file_header) != 0:
+                    print('\nFile header:')
+                    self.print_lines(file_header, print_n=True)
+                else:
+                    print('\nThere is no file header')
 
                 # Print function headers
                 if len(func_headers) != 0:
