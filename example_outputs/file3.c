@@ -26,8 +26,10 @@ int main() {
 	}
 
   if (x == 1)
+    // This if statement does not use curly braces
     printf("This if statement should have curly braces. This string is also"\
            "considered magic number\n");
+    printf("This statement is not part of the previous if statement");
 
   return 0;
 }

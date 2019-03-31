@@ -11,10 +11,17 @@ Line 23 to 24: else block must start on the same line as the curly brace of the 
   else {  // This should be on the line above
 Line 28: if should use curly braces
   if (x == 1)
-Line 30: Inconsistent Indentation. Expected 4 spaces. Got 11
+Line 30 to 31: Inconsistent Indentation. Expected 2 spaces on line 30. Got 4
+    printf("This if statement should have curly braces. This string is also"\
            "considered magic number\n");
 Line 30: Contains magic number/word
+    printf("This if statement should have curly braces. This string is also"\
+Line 31: Contains magic number/word
            "considered magic number\n");
+Line 32: Inconsistent Indentation. Expected 2 spaces. Got 4
+    printf("This statement is not part of the previous if statement");
+Line 32: Contains magic number/word
+    printf("This statement is not part of the previous if statement");
 
 File header:
 1		/*

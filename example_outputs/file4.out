@@ -1,0 +1,32 @@
+Detected Indent Amount of 2
+
+Line 23: Inconsistent Indentation. Expected 4 spaces. Got 5
+     if (x) {
+Line 25: Contains magic number/word
+      printf("Hello World\n");
+Line 26: Inconsistent Indentation. Expected 4 spaces. Got 5
+     } else {
+Line 26: Inconsistent Indentation. Expected 4 spaces. Got 5
+     } else {
+Line 27: Contains magic number/word
+      printf("Hello World Again\n");  // printf("Commented out code");
+Line 27: Commented out code
+      printf("Hello World Again\n");  // printf("Commented out code");
+Line 28: Inconsistent Indentation. Expected 4 spaces. Got 3
+   }
+
+File header:
+1		/*
+2		 * Filename: file4.c
+3		 * Description: This file demonstrates that it could parse code many
+4		 *              layers in, such as if statements inside if statements
+5		 */
+
+Function headers:
+12		/*
+13		 * Function: int main()
+14		 * Description: Find out if the system is little or big endian
+15		 */
+16		int main() {
+
+
