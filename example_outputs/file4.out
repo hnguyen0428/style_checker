@@ -1,17 +1,19 @@
 Detected Indent Amount of 2
 
-Line 23: Inconsistent Indentation. Expected 4 spaces, Got 5
-     if (x) {
-Line 25: Contains magic number/string
-      printf("Hello World\n");
-Line 26: Inconsistent Indentation. Expected 4 spaces, Got 5
-     } else {
-Line 27: Contains magic number/string
-      printf("Hello World Again\n");  // printf("Commented out code");
-Line 27: Commented out code
-      printf("Hello World Again\n");  // printf("Commented out code");
-Line 28: Inconsistent Indentation. Expected 4 spaces, Got 3
-   }
+Line 16: Contains magic number/string
+  int y = 10;
+Line 19: Inconsistent Indentation. Expected 4 spaces, Got 3
+   if (x < y)
+Line 20: Contains magic number/string
+      if (x < 5)
+Line 22: Inconsistent Indentation. Expected 10 spaces, Got 9
+         // This comment is indented incorrectly
+Line 23: Contains magic number/string
+          printf("Hello World\n");
+Line 24: Inconsistent Indentation. Expected 4 spaces, Got 10
+          printf("This statement is not part of the if's");
+Line 24: Contains magic number/string
+          printf("This statement is not part of the if's");
 
 File header:
 1		/*
@@ -21,10 +23,10 @@ File header:
 5		 */
 
 Function headers:
-12		/*
-13		 * Function: int main()
-14		 * Description: Find out if the system is little or big endian
-15		 */
-16		int main() {
+10		/*
+11		 * Function: int main()
+12		 * Description: Find out if the system is little or big endian
+13		 */
+14		int main() {
 
 
