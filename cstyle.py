@@ -845,13 +845,12 @@ class CStyleChecker(object):
                 print(self.lines[line_n])
 
     # General case indentation
-    # all_exact parameter will make the function do a strict check
     # with exact indentation match
     # flex parameter will check for either indent_amt or indent_amt + self.indent_amt
-    def check_indentation(self, lines, indent_amt, all_exact=False, flex=False):
+    def check_indentation(self, lines, indent_amt, flex=False):
         indent_error = False
-        cont_indent_error = False
         first_line_error = False
+        cont_indent_error = False
         guides = []
         for line_n in lines:
             # Replace tabs with spaces
@@ -864,10 +863,7 @@ class CStyleChecker(object):
 
             stripped_line = line.lstrip()
             actual_indent_amt = len(line) - len(stripped_line)
-            if all_exact:
-                if actual_indent_amt != indent_amt:
-                    indent_error = True
-            elif flex:
+            if flex:
                 if actual_indent_amt != indent_amt and\
                         actual_indent_amt != indent_amt + self.indent_amt:
                     indent_error = True
@@ -1086,7 +1082,7 @@ class CStyleChecker(object):
 
     def handle_block_comment(self, block, indent_amt):
         lines = block.lines
-        indent_error = False
+        errors = []
         for line_n in lines:
             # Replace tabs with spaces
             line = self.lines[line_n]
@@ -1100,21 +1096,34 @@ class CStyleChecker(object):
             if line_n == lines[0]:
                 # For the first line, the / should be == indent_amt
                 if actual_indent_amt != indent_amt:
-                    indent_error = True
+                    errors.append((
+                        'Line %d: Inconsistent Indentation. Expected %d spaces. Got %d'\
+                        % (line_n+1, indent_amt, actual_indent_amt),
+                        line
+                    ))
             else:
                 # For any other line, the * should line up, so indent
                 # amount should be == indent_amt + 1
                 # Only check this if they start the comment block with *
                 if stripped_line[0] == ASTERISK:
                     if actual_indent_amt != indent_amt + 1:
-                        indent_error = True
+                        errors.append((
+                            'Line %d: Inconsistent Indentation. Expected %d spaces. Got %d'\
+                            % (line_n+1, indent_amt+1, actual_indent_amt),
+                            line
+                        ))
+                else:
+                    if actual_indent_amt < indent_amt + 2:
+                        errors.append((
+                            'Line %d: Inconsistent Indentation. Expected at least %d spaces. Got %d'\
+                            % (line_n+1, indent_amt+2, actual_indent_amt),
+                            line
+                        ))
 
-        if indent_error:
-            if len(lines) > 1:
-                print('Line %d to %d: Inconsistent Indentation' % (lines[0]+1, lines[-1]+1))
-            else:
-                print('Line %d: Inconsistent Indentation' % (lines[0]+1))
-            self.print_lines(lines)
+        if len(errors) != 0:
+            for (error, line) in errors:
+                print(error)
+                print(line)
 
         last_line = self.lines[lines[-1]]
         index = last_line.find(END_BLOCK_COMMENT)
