@@ -914,7 +914,7 @@ class CStyleChecker(object):
         for line_n in lines:
             has_magic = self.contains_magic(self.lines[line_n], line_n)
             if has_magic:
-                print('Line %d: Contains magic number/word' % (line_n+1))
+                print('Line %d: Contains magic number/string' % (line_n+1))
                 print(self.lines[line_n])
 
     # General case: Handling group of lines with t being the type that
@@ -972,7 +972,9 @@ class CStyleChecker(object):
     # If {, then it will check the curly brace indentation. Returns None
     # If ;, then it will simply handle the statement that follows up to that ;
     # Returns the line number to follow if ;
-    def handle_terminator(self, lines, term_line, term_ind, indent_amt):
+    def handle_terminator(self, block, indent_amt):
+        lines = block.lines
+        term_line, term_ind = block.term_loc[0], block.term_loc[1]
         # Check indentation up to the terminator
         # Two cases: { is on the same line as the conditional statement
         # or { is on the next line
@@ -1010,7 +1012,13 @@ class CStyleChecker(object):
             # if (condition1)
             #   if (condition2)
             #     statement;
-            block = self.parse_line(term_line)
+            if block.get_type() == _CONDITIONAL:
+                start = block.end_cond
+            else:
+                start = block.start
+
+            # We will parse starting at the first line after the start line
+            block = self.parse_line(start[0]+1)
             return self.handle_block(block, indent_amt+self.indent_amt)
 
     def handle_end_block(self, block, indent_amt):
@@ -1207,8 +1215,7 @@ class CStyleChecker(object):
         if self.strict:
             self.handle_cond_strict(block, indent_amt)
 
-        ret = self.handle_terminator(lines, block.term_loc[0],
-                                     block.term_loc[1], indent_amt)
+        ret = self.handle_terminator(block, indent_amt)
         if ret:
             return ret
 
@@ -1251,8 +1258,7 @@ class CStyleChecker(object):
         if self.strict:
             self.handle_uncond_strict(block, indent_amt)
 
-        ret = self.handle_terminator(lines, block.term_loc[0],
-                                     block.term_loc[1], indent_amt)
+        ret = self.handle_terminator(block, indent_amt)
         if ret:     # Will only be true if terminator != {
             return ret
 
