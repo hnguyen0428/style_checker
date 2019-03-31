@@ -36,5 +36,11 @@ int main() {
 
   // This a very very very very very very very very  long comment that is over 80 characters.
 
+  // If we have a statement that continues to the next line, the continuation
+  // must be indented
+  if (long_condition1 && long_condition2 &&
+  long_condition3 && long_condition4)  // This should have been indented
+    printf("Bad Indentation\n");
+
   return 0;
 }

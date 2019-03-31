@@ -1,18 +1,18 @@
 Detected Indent Amount of 2
 
-Line 23: Inconsistent Indentation. Expected 4 spaces. Got 5
+Line 23: Inconsistent Indentation. Expected 4 spaces, Got 5
      if (x) {
-Line 25: Contains magic number/word
+Line 25: Contains magic number/string
       printf("Hello World\n");
-Line 26: Inconsistent Indentation. Expected 4 spaces. Got 5
+Line 26: Inconsistent Indentation. Expected 4 spaces, Got 5
      } else {
-Line 26: Inconsistent Indentation. Expected 4 spaces. Got 5
+Line 26: Inconsistent Indentation. Expected 4 spaces, Got 5
      } else {
-Line 27: Contains magic number/word
+Line 27: Contains magic number/string
       printf("Hello World Again\n");  // printf("Commented out code");
 Line 27: Commented out code
       printf("Hello World Again\n");  // printf("Commented out code");
-Line 28: Inconsistent Indentation. Expected 4 spaces. Got 3
+Line 28: Inconsistent Indentation. Expected 4 spaces, Got 3
    }
 
 File header:

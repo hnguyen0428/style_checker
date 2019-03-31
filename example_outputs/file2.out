@@ -3,20 +3,24 @@ Detected Indent Amount of 2
 File contains <TAB> characters
 Line 37: Over 80 characters
   // This a very very very very very very very very  long comment that is over 80 characters.
-Line 15: Inconsistent Indentation. Expected 0 spaces. Got 1
+Line 15: Inconsistent Indentation. Expected 0 spaces, Got 1
  #define BIG_ENDIAN "Big Endian\n"
 Line 20: Inconsistent Indentation. Expected 1 spaces. Got 2
   */
 Line 23: Commented out code
   //int y = 5;
-Line 24: Inconsistent Indentation. Expected 2 spaces. Got 3
+Line 24: Inconsistent Indentation. Expected 2 spaces, Got 3
    char* ptr = (char*) &x;
-Line 29: Inconsistent Indentation. Expected 4 spaces. Got 5
+Line 29: Inconsistent Indentation. Expected 4 spaces, Got 5
      printf(BIG_ENDIAN);
-Line 34: Contains magic number/word
+Line 34: Contains magic number/string
   char magic_array[5] = {0};
 Line 35: Left in TODO comment
   // TODO: Do something with this array
+Line 42: Inconsistent Indentation. Continuation of statement must be indented in by 4. Got 2
+  long_condition3 && long_condition4)  // This should have been indented
+Line 43: Contains magic number/string
+    printf("Bad Indentation\n");
 
 File header:
 1		/*

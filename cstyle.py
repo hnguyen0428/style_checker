@@ -10,6 +10,7 @@
 import re
 import sys
 import getopt
+from collections import defaultdict
 
 LEFT_CURLY = '{'
 RIGHT_CURLY = '}'
@@ -848,12 +849,8 @@ class CStyleChecker(object):
     # with exact indentation match
     # flex parameter will check for either indent_amt or indent_amt + self.indent_amt
     def check_indentation(self, lines, indent_amt, flex=False):
-        indent_error = False
-        first_line_error = False
-        cont_indent_error = False
-        guides = []
+        errors = defaultdict(list)
         for line_n in lines:
-            # Replace tabs with spaces
             line = self.lines[line_n]
             # Ignore if the line is whitespace only
             if white_space_ptrn.match(line):
@@ -866,49 +863,34 @@ class CStyleChecker(object):
             if flex:
                 if actual_indent_amt != indent_amt and\
                         actual_indent_amt != indent_amt + self.indent_amt:
-                    indent_error = True
+                    errors[line_n].append(
+                        'Line %d: Inconsistent Indentation. Expected %d spaces. Got %d'
+                        % (line_n+1, indent_amt, actual_indent_amt)
+                    )
             else:
                 if line_n == lines[0]:
                     # For the first line, the statement start exactly at indent_amt
                     if actual_indent_amt != indent_amt:
-                        indent_error = True
-                        first_line_error = True
+                        errors[line_n].append(
+                            'Line %d: Inconsistent Indentation. Expected %d spaces, Got %d'
+                            % (line_n+1, indent_amt, actual_indent_amt)
+                        )
+
                 else:
                     # For any other line, the statement must be indented
                     # at least indent_amt in
                     if actual_indent_amt < indent_amt + NEXT_LINE_INDENT:
-                        indent_error = True
-                        cont_indent_error = True
-                        non_space_ind = actual_indent_amt
-                        guides.append((line_n, self.generate_guide(line, [non_space_ind])))
-                    else:
-                        guides.append((line_n, None))
+                        errors[line_n].append(
+                            'Line %d: Inconsistent Indentation. Continuation of statement must be '
+                            'indented in by %d. Got %d' % (line_n+1, indent_amt+NEXT_LINE_INDENT, actual_indent_amt)
+                        )
 
-        if indent_error:
-            if len(lines) > 1:
-                if first_line_error:
-                    actual_indent_amt = self.get_indent_amt(lines[0])
-                    print('Line %d to %d: Inconsistent Indentation. Expected '
-                          '%d spaces on line %d. Got %d'\
-                          % (lines[0]+1, lines[-1]+1, indent_amt, lines[0]+1, actual_indent_amt))
-                else:
-                    print('Line %d to %d: Inconsistent Indentation' % (lines[0]+1, lines[-1]+1))
-            else:
-                actual_indent_amt = self.get_indent_amt(lines[0])
-                print('Line %d: Inconsistent Indentation. Expected %d spaces. Got %d'\
-                      % (lines[0]+1, indent_amt, actual_indent_amt))
-
-            if cont_indent_error:
-                print(self.lines[lines[0]])
-                for (l, guide) in guides:
-                    print(self.lines[l])
-                    if guide:
-                        print(guide)
-
-                print('  Continuation from the previous line must be '
-                      'indented in by %d' % self.indent_amt)
-            else:
-                self.print_lines(lines)
+        if len(errors) != 0:
+            keys = sorted(list(errors.keys()))
+            for key in keys:
+                for error in errors[key]:
+                    print(error)
+                print(self.lines[key])
 
     def check_magic(self, lines):
         for line_n in lines:
@@ -998,14 +980,12 @@ class CStyleChecker(object):
             self.handle_trailing_string(after, term_line, LEFT_CURLY)
             return None
         else:   # Semicolon or keywords
-            # If the terminator is a keyword, then we have to check indentation
-            # If not, then handle group will do the indentation check
-            if self.lines[term_line][term_ind] != SEMICOLON:
-                self.check_indentation([term_line], indent_amt+self.indent_amt)
-
             # Condition statement and the following statement is on the same
             # line. For example: if (condition) print(something);
+            # indent_amt - self.indent_amt because the indent_amt passed in is
+            # for the inner block
             if term_line == lines[0]:
+                self.check_indentation([term_line], indent_amt)
                 return term_line + 1
 
             # Must handle case where we have
@@ -1014,12 +994,18 @@ class CStyleChecker(object):
             #     statement;
             if block.get_type() == _CONDITIONAL:
                 start = block.end_cond
+                self.check_indentation([_ for _ in range(block.start[0], start[0]+1)], indent_amt)
             else:
                 start = block.start
+                self.check_indentation([start[0]], indent_amt)
 
             # We will parse starting at the first line after the start line
-            block = self.parse_line(start[0]+1)
-            return self.handle_block(block, indent_amt+self.indent_amt)
+            i = start[0] + 1
+            while i < len(self.lines) and i <= lines[-1]:
+                n_block = self.parse_line(i)
+                i = self.handle_block(n_block, indent_amt+self.indent_amt)
+
+            return lines[-1] + 1
 
     def handle_end_block(self, block, indent_amt):
         curly_start, curly_end = block.block_loc[0], block.block_loc[1]
