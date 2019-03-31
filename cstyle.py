@@ -847,11 +847,11 @@ class CStyleChecker(object):
     # General case indentation
     # all_exact parameter will make the function do a strict check
     # with exact indentation match
-    # relax parameter will only check if the actual indent amount is at least
-    # up to the indent_amt
-    def check_indentation(self, lines, indent_amt, all_exact=False, relax=False):
+    # flex parameter will check for either indent_amt or indent_amt + self.indent_amt
+    def check_indentation(self, lines, indent_amt, all_exact=False, flex=False):
         indent_error = False
         cont_indent_error = False
+        first_line_error = False
         guides = []
         for line_n in lines:
             # Replace tabs with spaces
@@ -867,14 +867,16 @@ class CStyleChecker(object):
             if all_exact:
                 if actual_indent_amt != indent_amt:
                     indent_error = True
-            elif relax:
-                if actual_indent_amt < indent_amt:
+            elif flex:
+                if actual_indent_amt != indent_amt and\
+                        actual_indent_amt != indent_amt + self.indent_amt:
                     indent_error = True
             else:
                 if line_n == lines[0]:
                     # For the first line, the statement start exactly at indent_amt
                     if actual_indent_amt != indent_amt:
                         indent_error = True
+                        first_line_error = True
                 else:
                     # For any other line, the statement must be indented
                     # at least indent_amt in
@@ -888,9 +890,17 @@ class CStyleChecker(object):
 
         if indent_error:
             if len(lines) > 1:
-                print('Line %d to %d: Inconsistent Indentation' % (lines[0]+1, lines[-1]+1))
+                if first_line_error:
+                    actual_indent_amt = self.get_indent_amt(lines[0])
+                    print('Line %d to %d: Inconsistent Indentation. Expected '
+                          '%d spaces on line %d. Got %d'\
+                          % (lines[0]+1, lines[-1]+1, indent_amt, lines[0]+1, actual_indent_amt))
+                else:
+                    print('Line %d to %d: Inconsistent Indentation' % (lines[0]+1, lines[-1]+1))
             else:
-                print('Line %d: Inconsistent Indentation' % (lines[0]+1))
+                actual_indent_amt = self.get_indent_amt(lines[0])
+                print('Line %d: Inconsistent Indentation. Expected %d spaces. Got %d'\
+                      % (lines[0]+1, indent_amt, actual_indent_amt))
 
             if cont_indent_error:
                 print(self.lines[lines[0]])
@@ -1122,8 +1132,8 @@ class CStyleChecker(object):
         lines = block.lines
         if in_switch:
             indent_amt = indent_amt + self.case_indent
-            # Relax the indentation check if inside switch
-            self.check_indentation(lines, indent_amt, relax=True)
+            # Flex the indentation check if inside switch
+            self.check_indentation(lines, indent_amt, flex=True)
         else:
             self.check_indentation(lines, indent_amt)
 
