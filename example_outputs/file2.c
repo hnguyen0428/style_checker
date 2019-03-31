@@ -5,7 +5,7 @@
  *              - Magic Number
  *              - TODO comments
  *              - Indentation errors
- *              - Used Tab (Line 29)
+ *              - Used Tab
  *              - Line over 80
  */
 
@@ -26,8 +26,7 @@ int main() {
   if (ptr[0]) {
     printf(LITTLE_ENDIAN);
   } else {
-     printf(BIG_ENDIAN);
-  }
+     printf(BIG_ENDIAN);}
 
 	// This line was indented using TAB
 

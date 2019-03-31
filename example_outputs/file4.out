@@ -6,8 +6,6 @@ Line 25: Contains magic number/string
       printf("Hello World\n");
 Line 26: Inconsistent Indentation. Expected 4 spaces, Got 5
      } else {
-Line 26: Inconsistent Indentation. Expected 4 spaces, Got 5
-     } else {
 Line 27: Contains magic number/string
       printf("Hello World Again\n");  // printf("Commented out code");
 Line 27: Commented out code

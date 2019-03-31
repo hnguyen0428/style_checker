@@ -2,7 +2,7 @@
     Filename: cstyle.py
     Author: Daniel Nguyen
     Date Created: March 23, 2019
-    Last Modified: March 29, 2019
+    Last Modified: March 30, 2019
     Python Version: 2.7
 '''
 
@@ -867,6 +867,7 @@ class CStyleChecker(object):
                         'Line %d: Inconsistent Indentation. Expected %d spaces. Got %d'
                         % (line_n+1, indent_amt, actual_indent_amt)
                     )
+
             else:
                 if line_n == lines[0]:
                     # For the first line, the statement start exactly at indent_amt
@@ -875,7 +876,6 @@ class CStyleChecker(object):
                             'Line %d: Inconsistent Indentation. Expected %d spaces, Got %d'
                             % (line_n+1, indent_amt, actual_indent_amt)
                         )
-
                 else:
                     # For any other line, the statement must be indented
                     # at least indent_amt in
@@ -884,6 +884,10 @@ class CStyleChecker(object):
                             'Line %d: Inconsistent Indentation. Continuation of statement must be '
                             'indented in by %d. Got %d' % (line_n+1, indent_amt+NEXT_LINE_INDENT, actual_indent_amt)
                         )
+            og_line = self.og_lines[line_n]
+            i = len(og_line) - len(og_line.lstrip())
+            if og_line[:i].find(TAB_CHAR) != -1:
+                errors[line_n].append('Line %d: Used TAB to indent' % (line_n+1))
 
         if len(errors) != 0:
             keys = sorted(list(errors.keys()))
@@ -1011,12 +1015,11 @@ class CStyleChecker(object):
         curly_start, curly_end = block.block_loc[0], block.block_loc[1]
         last_line = self.lines[curly_end[0]]
         before = last_line[:curly_end[1]]
-        # First check the part before the } for code
-        self.handle_leading_string(before, curly_end[0], RIGHT_CURLY, indent_amt)
 
-        # Skip trailing check for do while since while is behind the curly
+        # For do while, we check after the while condition
         if block.keyword == "do":
             after = self.lines[block.end[0]][block.end[1]+1:]
+            self.handle_leading_string(before, curly_end[0], RIGHT_CURLY, indent_amt)
             self.handle_trailing_string(after, block.end[0], SEMICOLON)
             return None
 
@@ -1024,14 +1027,23 @@ class CStyleChecker(object):
         after = last_line[curly_end[1]+1:]
         if len(after) != 0:
             # If the after part is not a comment
-            if not cmmt_ptrn.match(after) and not blck_cmmt_ptrn.match(after):
+            if not cmmt_ptrn.match(after) and not blck_cmmt_empty_ptrn.match(after):
                 keyword, index = self.match_keywords(after, curly_end[0])
                 # If there is a keyword, return this line so that
-                # that could be parsed later
+                # that could be parsed later. We ignore the leading and trailing
+                # check
                 if keyword:
                     return keyword
-                elif block.get_type() != _STRUCTURE:
-                    self.handle_trailing_string(after, curly_end[0], RIGHT_CURLY)
+                else:
+                    self.handle_leading_string(before, curly_end[0], RIGHT_CURLY, indent_amt)
+                    # We don't check trailing for structure
+                    if block.get_type() != _STRUCTURE:
+                        self.handle_trailing_string(after, curly_end[0], RIGHT_CURLY)
+            else:
+                self.handle_leading_string(before, curly_end[0], RIGHT_CURLY, indent_amt)
+        else:
+            self.handle_leading_string(before, curly_end[0], RIGHT_CURLY, indent_amt)
+
         return None
 
     def handle_if_else_spacing(self, block):
@@ -1372,15 +1384,8 @@ class CStyleChecker(object):
                 print('Line %d: Over %d characters' % (i+1, LINE_LIMIT))
                 print(l)
 
-    def check_tabs(self):
-        for l in self.og_lines:
-            if l.find(TAB_CHAR) != -1:
-                print('File contains <TAB> characters')
-                break
-
     def run(self):
         print('')
-        self.check_tabs()
         self.check_line_limit()
 
         # Collect function headers
