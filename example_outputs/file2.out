@@ -1,0 +1,40 @@
+Detected Indent Amount of 2
+
+File contains <TAB> characters
+Line 37: Over 80 characters
+  // This a very very very very very very very very  long comment that is over 80 characters.
+Line 15: Inconsistent Indentation. Expected 0 spaces. Got 1
+ #define BIG_ENDIAN "Big Endian\n"
+Line 20: Inconsistent Indentation. Expected 1 spaces. Got 2
+  */
+Line 23: Commented out code
+  //int y = 5;
+Line 24: Inconsistent Indentation. Expected 2 spaces. Got 3
+   char* ptr = (char*) &x;
+Line 29: Inconsistent Indentation. Expected 4 spaces. Got 5
+     printf(BIG_ENDIAN);
+Line 34: Contains magic number/word
+  char magic_array[5] = {0};
+Line 35: Left in TODO comment
+  // TODO: Do something with this array
+
+File header:
+1		/*
+2		 * Filename: file2.c
+3		 * Description: This file has many errors. Including
+4		 *              - Commented out code
+5		 *              - Magic Number
+6		 *              - TODO comments
+7		 *              - Indentation errors
+8		 *              - Used Tab (Line 29)
+9		 *              - Line over 80
+10		 */
+
+Function headers:
+17		/*
+18		 * Function: int main()
+19		 * Description: Find out if the system is little or big endian
+20		  */
+21		int main() {
+
+

@@ -1,0 +1,32 @@
+
+File contains <TAB> characters
+Line 20: if and (condition) must be separated with a space
+  if(ptr[0])
+   ^^       
+Line 20 to 21: { must be on the same line after the end of if condition
+  if(ptr[0])
+  {  // This curly brace should be on the line above
+Line 23 to 24: else block must start on the same line as the curly brace of the previous if/else if block
+  }
+  else {  // This should be on the line above
+Line 28: if should use curly braces
+  if (x == 1)
+Line 30: Inconsistent Indentation. Expected 4 spaces. Got 11
+           "considered magic number\n");
+Line 30: Contains magic number/word
+           "considered magic number\n");
+
+File header:
+1		/*
+2		 * Filename: file3.c
+3		 * Description: This file demonstrates style checked in strict mode.
+4		 */
+
+Function headers:
+11		/*
+12		 * Function: int main()
+13		 * Description: Find out if the system is little or big endian
+14		 */
+15		int main() {
+
+

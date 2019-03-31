@@ -1,0 +1,17 @@
+Detected Indent Amount of 2
+
+
+File header:
+1		/*
+2		 * Filename: file1.c
+3		 * Description: This is a perfect file
+4		 */
+
+Function headers:
+11		/*
+12		 * Function: int main()
+13		 * Description: Find out if the system is little or big endian
+14		 */
+15		int main() {
+
+
