@@ -13,14 +13,12 @@ Line 24: Inconsistent Indentation. Expected 2 spaces, Got 3
 Line 29: } should be on the next line
 Line 31: Used TAB to indent
   // This line was indented using TAB
-Line 33: Contains magic number/string
+Line 33: Contains magic number
   char magic_array[5] = {0};
 Line 34: Left in TODO comment
   // TODO: Do something with this array
 Line 41: Inconsistent Indentation. Continuation of statement must be indented in by 4. Got 2
   long_condition3 && long_condition4)  // This should have been indented
-Line 42: Contains magic number/string
-    printf("Bad Indentation\n");
 
 File header:
 1		/*

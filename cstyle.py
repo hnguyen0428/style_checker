@@ -316,48 +316,50 @@ class CStyleChecker(object):
             number = match.group(NUM_GROUP_IND)
             if number not in NON_MAGIC_NUMBERS:
                 lo, hi = match.start(NUM_GROUP_IND), match.end(NUM_GROUP_IND)
-                in_comment = self.within_comment(line, n, lo, hi)
-                if not in_comment:
+                # Check if the magic number is inside a string or a comment
+                if self.valid_string(line, n, lo, hi):
                     return True
 
-        in_quote = False
-        index = line.find(DOUBLE_QUOTE)
-        if index != -1:
-            prev_quote = index
-            # Check for strings on this line
-            for i in range(index, len(line)):
-                if line[i] == DOUBLE_QUOTE and (i == 0 or line[i-1] != BACKSLASH):
-                    if in_quote:
-                        in_quote = False
-                        # Check if the string found is non magic string
-                        if line[prev_quote:i+1] not in NON_MAGIC_NUMBERS:
-                            index = line.find(line[prev_quote:i+1])
-                            lo, hi = index, index + len(line[prev_quote:i+1])
-                            in_comment = self.within_comment(line, n, lo, hi)
-                            if not in_comment:
-                                return True
-                    else:
-                        in_quote = True
-                        prev_quote = i
+        # The checks below are for checking if there are strings and characters
 
-        index = line.find(SINGLE_QUOTE)
-        if index != -1:
-            prev_quote = index
-            # Check for strings on this line
-            for i in range(index, len(line)):
-                if line[i] == SINGLE_QUOTE and (i == 0 or line[i-1] != BACKSLASH):
-                    if in_quote:
-                        in_quote = False
-                        # Check if the char found is non magic char
-                        if line[prev_quote:i+1] not in NON_MAGIC_NUMBERS:
-                            index = line.find(line[prev_quote:i+1])
-                            lo, hi = index, index + len(line[prev_quote:i+1])
-                            in_comment = self.within_comment(line, n, lo, hi)
-                            if not in_comment:
-                                return True
-                    else:
-                        in_quote = True
-                        prev_quote = i
+        # in_quote = False
+        # index = line.find(DOUBLE_QUOTE)
+        # if index != -1:
+        #     prev_quote = index
+        #     # Check for strings on this line
+        #     for i in range(index, len(line)):
+        #         if line[i] == DOUBLE_QUOTE and (i == 0 or line[i-1] != BACKSLASH):
+        #             if in_quote:
+        #                 in_quote = False
+        #                 # Check if the string found is non magic string
+        #                 if line[prev_quote:i+1] not in NON_MAGIC_NUMBERS:
+        #                     index = line.find(line[prev_quote:i+1])
+        #                     lo, hi = index, index + len(line[prev_quote:i+1])
+        #                     in_comment = self.within_comment(line, n, lo, hi)
+        #                     if not in_comment:
+        #                         return True
+        #             else:
+        #                 in_quote = True
+        #                 prev_quote = i
+        #
+        # index = line.find(SINGLE_QUOTE)
+        # if index != -1:
+        #     prev_quote = index
+        #     # Check for strings on this line
+        #     for i in range(index, len(line)):
+        #         if line[i] == SINGLE_QUOTE and (i == 0 or line[i-1] != BACKSLASH):
+        #             if in_quote:
+        #                 in_quote = False
+        #                 # Check if the char found is non magic char
+        #                 if line[prev_quote:i+1] not in NON_MAGIC_NUMBERS:
+        #                     index = line.find(line[prev_quote:i+1])
+        #                     lo, hi = index, index + len(line[prev_quote:i+1])
+        #                     in_comment = self.within_comment(line, n, lo, hi)
+        #                     if not in_comment:
+        #                         return True
+        #             else:
+        #                 in_quote = True
+        #                 prev_quote = i
 
         return False
 
@@ -900,7 +902,7 @@ class CStyleChecker(object):
         for line_n in lines:
             has_magic = self.contains_magic(self.lines[line_n], line_n)
             if has_magic:
-                print('Line %d: Contains magic number/string' % (line_n+1))
+                print('Line %d: Contains magic number' % (line_n+1))
                 print(self.lines[line_n])
 
     # General case: Handling group of lines with t being the type that

@@ -1,18 +1,14 @@
 Detected Indent Amount of 2
 
-Line 16: Contains magic number/string
+Line 16: Contains magic number
   int y = 10;
 Line 19: Inconsistent Indentation. Expected 4 spaces, Got 3
    if (x < y)
-Line 20: Contains magic number/string
+Line 20: Contains magic number
       if (x < 5)
 Line 22: Inconsistent Indentation. Expected 10 spaces, Got 9
          // This comment is indented incorrectly
-Line 23: Contains magic number/string
-          printf("Hello World\n");
 Line 24: Inconsistent Indentation. Expected 4 spaces, Got 10
-          printf("This statement is not part of the if's");
-Line 24: Contains magic number/string
           printf("This statement is not part of the if's");
 
 File header:

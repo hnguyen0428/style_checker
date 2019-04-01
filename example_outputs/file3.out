@@ -12,13 +12,7 @@ Line 26: Used TAB to indent
   }
 Line 28: if should use curly braces
   if (x == 1)
-Line 30: Contains magic number/string
-    printf("This if statement should have curly braces. This string is also"\
-Line 31: Contains magic number/string
-           "considered magic number\n");
 Line 32: Inconsistent Indentation. Expected 2 spaces, Got 4
-    printf("This statement is not part of the previous if statement");
-Line 32: Contains magic number/string
     printf("This statement is not part of the previous if statement");
 
 File header:
