@@ -17,7 +17,7 @@ print them out for manual checking.
 
 ### Usage
 
-    - Usage: python cstyle.py [-h] -f <C filename> [-i <indent amount>] [-w] [-p] [-s]
+    - Usage: python cstyle.py -f <C filename> [-h] [-i <indent amount>] [-w] [-p] [-s]
                 -h/--help: Show help message
                 -f/--file: Filename to style check (required argument)
                 -i/--indent: Indentation amount
@@ -79,7 +79,7 @@ print them out for manual checking.
     
 ### Usage
 
-    - Usage: python sstyle.py [-h] -f <C filename>
+    - Usage: python sstyle.py -f <Assembly filename> [-h] [-p]
                 -h/--help: Show help message
                 -f/--file: Filename to style check (required argument)
                 -p/--print-headers: If passed, program will print the file/function headers

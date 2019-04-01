@@ -489,7 +489,7 @@ class SStyleChecker(object):
 
 def usage():
     print(
-        ("Usage: python %s [-h] -f <C filename>\n" % sys.argv[0]) +
+        ("Usage: python %s -f <Assembly filename> [-h] [-p]\n" % sys.argv[0]) +
         "\t-h/--help: Show help message\n" +
         "\t-f/--file: Filename to style check (required argument)\n" +
         "\t-p/--print-headers: If passed, program will print the file/function headers\n"
