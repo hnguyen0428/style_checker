@@ -37,6 +37,7 @@ VARS_ALLOWED_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ012345
 STD_CHARS_REGEXP = "[a-zA-Z_][a-zA-Z0-9_]*"
 NUMBER_REGEXP = "(-|)(0x|0|)[0-9]+"
 OPERATORS_REGEXP = "(\+|\-|\*|\/|\%|\&|\||\^)"
+ASSIGNMENT_OPS_REGEXP = "(\=|\+=|\-=|\*=|\/=|\%=|\<\<=|\>\>=|\&=|\|=|\^=)"
 
 
 BLCK_COMMENT_REGEXP = " *(\/\*)"
@@ -51,7 +52,7 @@ NUM_GROUP_IND = 2
 STRING_REGEXP = "(\".*\")"
 CHAR_REGEXP = "(\'.*\')"
 SEP_BY_SPACE_REGEXP = "\A. .\Z"
-LVALUES_REGEXP = "(|\()(\** *)(|\(*)((%s)|(%s))((\-\>.*(|\)))|(\[.+\](|\))))*(|\))" \
+LVALUES_REGEXP = "(|\()(\** *)(|\(*)((%s)|(%s))((\..*(|\)))|(\-\>.*(|\)))|(\[.+\](|\))))*(|\))" \
                  % (STD_CHARS_REGEXP, " *[a-zA-Z_][a-zA-Z0-9_]* *\(.*\) *")
 
 # Covers most cases of return types for functions
@@ -71,7 +72,7 @@ FUNC_REGEXP = (" *(%s|)" % "|".join(FUNC_KEYWORDS)) +\
     "(%s)(\** +| +\**| +\** +)(%s)( )*(\(.*\))" % (STD_CHARS_REGEXP, STD_CHARS_REGEXP)
 FUNC_HDR_REGEXP = (" *(%s|)" % "|".join(FUNC_KEYWORDS)) +\
     "%s(\** +| +\**| +\** +)%s( )*\(.*\) *; *\Z" % (STD_CHARS_REGEXP, STD_CHARS_REGEXP)
-ASSIGNMENT_REGEXP = " *%s *=.* *;" % LVALUES_REGEXP
+ASSIGNMENT_REGEXP = " *%s *%s.* *;" % (LVALUES_REGEXP, ASSIGNMENT_OPS_REGEXP)
 DEC_ASSIGNMENT_REGEXP = " *(%s|)%s(\** +| +\**| +\** +)%s( *, *%s)* *=.* *;"\
                         % ("|".join(FUNC_KEYWORDS), STD_CHARS_REGEXP,
                            STD_CHARS_REGEXP, STD_CHARS_REGEXP)
