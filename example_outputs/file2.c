@@ -41,5 +41,8 @@ int main() {
   long_condition3 && long_condition4)  // This should have been indented
     printf("Bad Indentation\n");
 
+  // More complex version of commented out code
+  //(*((struct1->struct2)->struct3->array[0]))->val = 5;
+
   return 0;
 }

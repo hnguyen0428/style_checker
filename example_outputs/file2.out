@@ -19,6 +19,8 @@ Line 34: Left in TODO comment
   // TODO: Do something with this array
 Line 41: Inconsistent Indentation. Continuation of statement must be indented in by 4. Got 2
   long_condition3 && long_condition4)  // This should have been indented
+Line 45: Commented out code
+  //(*((struct1->struct2)->struct3->array[0]))->val = 5;
 
 File header:
 1		/*
