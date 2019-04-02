@@ -51,8 +51,8 @@ NUM_GROUP_IND = 2
 STRING_REGEXP = "(\".*\")"
 CHAR_REGEXP = "(\'.*\')"
 SEP_BY_SPACE_REGEXP = "\A. .\Z"
-LVALUES_REGEXP = "(|\()(\** *)(|\(*)(%s)((\-\>.*(|\)))|(\[.+\](|\))))*(|\))" \
-                 % (STD_CHARS_REGEXP)
+LVALUES_REGEXP = "(|\()(\** *)(|\(*)((%s)|(%s))((\-\>.*(|\)))|(\[.+\](|\))))*(|\))" \
+                 % (STD_CHARS_REGEXP, " *[a-zA-Z_][a-zA-Z0-9_]* *\(.*\) *")
 
 # Covers most cases of return types for functions
 FUNC_KEYWORDS = [
