@@ -1428,6 +1428,10 @@ class CStyleChecker(object):
                 # Join the function header lines with the function declaration
                 new_group = prev_group + [_ for _ in range(group[0], term_line+1)]
                 func_headers.append(new_group)
+
+                # Clear memory of seeing a comment block
+                prev_type = None
+                prev_group = None
             elif t != _EMPTY_LINE:
                 # If the type is not the empty line then we clear memory
                 # of seeing a block comment
