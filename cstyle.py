@@ -36,6 +36,7 @@ VARS_ALLOWED_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ012345
 # Characters that can be used in a type or a function name
 STD_CHARS_REGEXP = "[a-zA-Z_][a-zA-Z0-9_]*"
 NUMBER_REGEXP = "(-|)(0x|0|)[0-9]+"
+OPERATORS_REGEXP = "(\+|\-|\*|\/|\%|\&|\||\^)"
 
 
 BLCK_COMMENT_REGEXP = " *(\/\*)"
@@ -50,6 +51,8 @@ NUM_GROUP_IND = 2
 STRING_REGEXP = "(\".*\")"
 CHAR_REGEXP = "(\'.*\')"
 SEP_BY_SPACE_REGEXP = "\A. .\Z"
+LVALUES_REGEXP = "(|\()(\** *)(|\(*)(%s)((\-\>.*(|\)))|(\[.+\](|\))))*(|\))" \
+                 % (STD_CHARS_REGEXP)
 
 # Covers most cases of return types for functions
 FUNC_KEYWORDS = [
@@ -68,15 +71,17 @@ FUNC_REGEXP = (" *(%s|)" % "|".join(FUNC_KEYWORDS)) +\
     "(%s)(\** +| +\**| +\** +)(%s)( )*(\(.*\))" % (STD_CHARS_REGEXP, STD_CHARS_REGEXP)
 FUNC_HDR_REGEXP = (" *(%s|)" % "|".join(FUNC_KEYWORDS)) +\
     "%s(\** +| +\**| +\** +)%s( )*\(.*\) *; *\Z" % (STD_CHARS_REGEXP, STD_CHARS_REGEXP)
-ASSIGNMENT_REGEXP = " *(\** *)%s *=.* *;" % (STD_CHARS_REGEXP)
+ASSIGNMENT_REGEXP = " *%s *=.* *;" % LVALUES_REGEXP
 DEC_ASSIGNMENT_REGEXP = " *(%s|)%s(\** +| +\**| +\** +)%s( *, *%s)* *=.* *;"\
                         % ("|".join(FUNC_KEYWORDS), STD_CHARS_REGEXP,
                            STD_CHARS_REGEXP, STD_CHARS_REGEXP)
-FUNC_CALL_REGEXP = " *[a-zA-Z_][a-zA-Z0-9_]* *\(.*\) *;"
+FUNC_CALL_REGEXP = " *(\( *void *\)|) *[a-zA-Z_][a-zA-Z0-9_]* *\(.*\) *;"
 DECLARATIONS_REGEXP = " *(%s|)%s(\** +| +\**| +\** +)%s( *, *%s)* *;"\
                       % ("|".join(FUNC_KEYWORDS), STD_CHARS_REGEXP,
                          STD_CHARS_REGEXP, STD_CHARS_REGEXP)
 KEYWORDS_REGEXP = "( *(if|else if|while|for|switch) *\(.*\))|((continue|break);)"
+INCREMENT_REGEXP = " *%s *\+\+;" % LVALUES_REGEXP
+DECREMENT_REGEXP = " *%s *\-\-;" % LVALUES_REGEXP
 
 # Misc
 TODO_COMMENT_REGEXP = " *// *TODO"
@@ -102,12 +107,17 @@ dec_asg_ptrn = re.compile(DEC_ASSIGNMENT_REGEXP)
 func_call_ptrn = re.compile(FUNC_CALL_REGEXP)
 dec_ptrn = re.compile(DECLARATIONS_REGEXP)
 keywords_ptrn = re.compile(KEYWORDS_REGEXP)
+increment_ptrn = re.compile(INCREMENT_REGEXP)
+decrement_ptrn = re.compile(DECREMENT_REGEXP)
 
 todo_cmmt_ptrn = re.compile(TODO_COMMENT_REGEXP)
 sep_space_ptrn = re.compile(SEP_BY_SPACE_REGEXP)
 
-code_regexp = [c_dirs_ptrn, func_ptrn, func_hdr_ptrn, asg_ptrn,
-dec_asg_ptrn, func_call_ptrn, dec_ptrn, keywords_ptrn]
+code_regexp = [
+    c_dirs_ptrn, func_ptrn, func_hdr_ptrn, asg_ptrn,
+    dec_asg_ptrn, func_call_ptrn, dec_ptrn, keywords_ptrn,
+    increment_ptrn, decrement_ptrn
+]
 
 # Types
 _BLOCK_CMMT = 0

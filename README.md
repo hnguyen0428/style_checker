@@ -8,7 +8,7 @@ A style checker/linter for C files.
 - Lines over 80 characters
 - General indentation
 - "Magic" Numbers
-- Commented out code (most of them)
+- Commented out code (mostly basic ones)
 - Left in TODO comments
 - Check for tabs (style guide uses spaces for C files)
 - Will not automatically check for file/function headers but can
