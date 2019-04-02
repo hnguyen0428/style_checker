@@ -79,7 +79,7 @@ FUNC_CALL_REGEXP = " *(\( *void *\)|) *[a-zA-Z_][a-zA-Z0-9_]* *\(.*\) *;"
 DECLARATIONS_REGEXP = " *(%s|)%s(\** +| +\**| +\** +)%s( *, *%s)* *;"\
                       % ("|".join(FUNC_KEYWORDS), STD_CHARS_REGEXP,
                          STD_CHARS_REGEXP, STD_CHARS_REGEXP)
-KEYWORDS_REGEXP = "( *(if|else if|while|for|switch) *\(.*\))|((continue|break);)"
+KEYWORDS_REGEXP = "( *(if|else if|while|for|switch) *\(.*\))|((continue|break);)|(return.*;)"
 INCREMENT_REGEXP = " *%s *\+\+;" % LVALUES_REGEXP
 DECREMENT_REGEXP = " *%s *\-\-;" % LVALUES_REGEXP
 
