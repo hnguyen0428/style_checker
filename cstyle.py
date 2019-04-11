@@ -334,7 +334,7 @@ class CStyleChecker(object):
 
         # The checks below are for checking if there are strings and characters
 
-        # in_quote = False
+        in_quote = False
         # index = line.find(DOUBLE_QUOTE)
         # if index != -1:
         #     prev_quote = index

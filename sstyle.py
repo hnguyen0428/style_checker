@@ -104,7 +104,7 @@ class SStyleChecker(object):
                 if not in_comment and not in_quote:
                     return True
 
-        # in_quote = False
+        in_quote = False
         # index = line.find(DOUBLE_QUOTE)
         # if index != -1:
         #     prev_quote = index
