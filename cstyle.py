@@ -2,7 +2,7 @@
     Filename: cstyle.py
     Author: Daniel Nguyen
     Date Created: March 23, 2019
-    Last Modified: March 30, 2019
+    Last Modified: April 11, 2019
     Python Version: 2.7
 '''
 
@@ -146,7 +146,7 @@ TAB_LENGTH = 2
 INDENT_AMOUNT = 2
 NEWLINES_LIMIT = 2
 NON_MAGIC_NUMBERS = [
-    '0', '-1', '1', '\"\\n\"', '\'\\n\'', '\'\\0\'',
+    '0', '-1', '1', '\"\\n\"', '\'\\0\'',
     '\"r\"', '\"w\"', '\"a\"', '\"r+\"', '\"w+\"', '\"a+\"', 
     '\"rb\"', '\"wb\"', '\"ab\"', '\"r+b\"', '\"w+b\"', '\"a+b\"', 
     '\"rb+\"', '\"wb+\"', '\"ab+\"'
@@ -354,24 +354,24 @@ class CStyleChecker(object):
         #                 in_quote = True
         #                 prev_quote = i
         #
-        # index = line.find(SINGLE_QUOTE)
-        # if index != -1:
-        #     prev_quote = index
-        #     # Check for strings on this line
-        #     for i in range(index, len(line)):
-        #         if line[i] == SINGLE_QUOTE and (i == 0 or line[i-1] != BACKSLASH):
-        #             if in_quote:
-        #                 in_quote = False
-        #                 # Check if the char found is non magic char
-        #                 if line[prev_quote:i+1] not in NON_MAGIC_NUMBERS:
-        #                     index = line.find(line[prev_quote:i+1])
-        #                     lo, hi = index, index + len(line[prev_quote:i+1])
-        #                     in_comment = self.within_comment(line, n, lo, hi)
-        #                     if not in_comment:
-        #                         return True
-        #             else:
-        #                 in_quote = True
-        #                 prev_quote = i
+        index = line.find(SINGLE_QUOTE)
+        if index != -1:
+            prev_quote = index
+            # Check for strings on this line
+            for i in range(index, len(line)):
+                if line[i] == SINGLE_QUOTE and (i == 0 or line[i-1] != BACKSLASH):
+                    if in_quote:
+                        in_quote = False
+                        # Check if the char found is non magic char
+                        if line[prev_quote:i+1] not in NON_MAGIC_NUMBERS:
+                            index = line.find(line[prev_quote:i+1])
+                            lo, hi = index, index + len(line[prev_quote:i+1])
+                            in_comment = self.within_comment(line, n, lo, hi)
+                            if not in_comment:
+                                return True
+                    else:
+                        in_quote = True
+                        prev_quote = i
 
         return False
 

@@ -2,7 +2,7 @@
     Filename: sstyle.py
     Author: Daniel Nguyen
     Date Created: March 27, 2019
-    Last Modified: March 30, 2019
+    Last Modified: April 11, 2019
     Python Version: 2.7
 '''
 
@@ -60,7 +60,7 @@ LINE_LIMIT = 80
 TAB_LENGTH = 4
 NEWLINES_LIMIT = 2
 NON_MAGIC_NUMBERS = [
-    '0', '-1', '1'
+    '0', '-1', '1', '\'\\0\''
 ]
 
 class SStyleChecker(object):
@@ -124,24 +124,24 @@ class SStyleChecker(object):
         #                 in_quote = True
         #                 prev_quote = i
         #
-        # index = line.find(SINGLE_QUOTE)
-        # if index != -1:
-        #     prev_quote = index
-        #     # Check for strings on this line
-        #     for i in range(index, len(line)):
-        #         if line[i] == SINGLE_QUOTE and (i == 0 or line[i-1] != BACKSLASH):
-        #             if in_quote:
-        #                 in_quote = False
-        #                 # Check if the char found is non magic char
-        #                 if line[prev_quote:i+1] not in NON_MAGIC_NUMBERS:
-        #                     index = line.find(line[prev_quote:i+1])
-        #                     lo, hi = index, index + len(line[prev_quote:i+1])
-        #                     in_comment = self.within_comment(line, n, lo, hi)
-        #                     if not in_comment:
-        #                         return True
-        #             else:
-        #                 in_quote = True
-        #                 prev_quote = i
+        index = line.find(SINGLE_QUOTE)
+        if index != -1:
+            prev_quote = index
+            # Check for strings on this line
+            for i in range(index, len(line)):
+                if line[i] == SINGLE_QUOTE and (i == 0 or line[i-1] != BACKSLASH):
+                    if in_quote:
+                        in_quote = False
+                        # Check if the char found is non magic char
+                        if line[prev_quote:i+1] not in NON_MAGIC_NUMBERS:
+                            index = line.find(line[prev_quote:i+1])
+                            lo, hi = index, index + len(line[prev_quote:i+1])
+                            in_comment = self.within_comment(line, n, lo, hi)
+                            if not in_comment:
+                                return True
+                    else:
+                        in_quote = True
+                        prev_quote = i
 
         return False
 
