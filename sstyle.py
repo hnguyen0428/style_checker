@@ -417,7 +417,7 @@ class SStyleChecker(object):
         return lines[-1] + 1
 
     def check_line_limit(self):
-        for i, l in enumerate(self.lines):
+        for i, l in enumerate(self.og_lines):
             if len(l) > LINE_LIMIT:
                 print('Line %d: Over %d characters' % (i+1, LINE_LIMIT))
                 print(l)
