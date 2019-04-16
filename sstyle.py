@@ -32,7 +32,7 @@ COMMENT_REGEXP = " *(\/\/|\@|\#).*"
 MAGIC_NUMBER_REGEXP = "[^a-zA-Z0-9_]+(-|)((0x|0|)[0-9]+)"
 # The group index that is the number inside the magic number pattern
 NUM_GROUP_IND = 2
-WHITE_SPACE_REGEXP = "( |\t)+\Z"
+WHITE_SPACE_REGEXP = "(|( |\t)+)\Z"
 TODO_COMMENT_REGEXP = " *(//|@|#) *TODO"
 
 
